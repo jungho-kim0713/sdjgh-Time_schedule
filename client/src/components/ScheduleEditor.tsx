@@ -1,17 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface Props {
   courses: any[];
   baseSchedules: any[];
-  dailySchedules?: any[]; // 업데이트됨
+  dailySchedules?: any[];
   teachers: any[];
+  onUpdate?: () => void; // 부모 데이터 리프레시 함수
 }
 
-const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedules, teachers }) => {
-  // 좌측 폼 State
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [sourceTeacher, setSourceTeacher] = useState('all');
+const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedules, teachers, onUpdate }) => {
+  // 좌측 폼 State (세션 스토리지 연동하여 새로고침 시 유지)
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    return sessionStorage.getItem('editor_selectedDate') || '';
+  });
+  const [sourceTeacher, setSourceTeacher] = useState<string>(() => {
+    return sessionStorage.getItem('editor_sourceTeacher') || 'all';
+  });
   const [selectedPeriod, setSelectedPeriod] = useState<string>(''); // 클릭한 교시
+
+  useEffect(() => {
+    sessionStorage.setItem('editor_selectedDate', selectedDate);
+  }, [selectedDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem('editor_sourceTeacher', sourceTeacher);
+  }, [sourceTeacher]);
 
   // 중앙 액션 State
   const [actionType, setActionType] = useState<string>('exchange'); // exchange, makeup, selfStudy, merge
@@ -132,8 +145,8 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
     const baseDate = new Date(selectedDate);
     const searchDateStrings: string[] = [];
     
-    // 교체가 아니면 당일만 탐색
-    const actualRange = actionType === 'exchange' ? searchRange : 0;
+    // 교체와 통합은 지정된 탐색 범위를 사용
+    const actualRange = (actionType === 'exchange' || actionType === 'merge') ? searchRange : 0;
     
     if (actualRange === 0) {
         searchDateStrings.push(selectedDate);
@@ -212,11 +225,24 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                }
            }
            else if (actionType === 'merge') {
+               if (!sourceClassInfo) return;
+               
+               // 1. "해당 시간(selectedPeriod)에 수업을 하고 있는 선생님"
                const targetCourseAtSourcePeriod = targetSchedulesOnDate.find(s => String(s['교시']) === String(selectedPeriod));
+               
                if (targetCourseAtSourcePeriod) {
-                   const targetCourseInfo = courses.find(c => c['강좌코드'] === targetCourseAtSourcePeriod['강좌코드']);
-                   if (targetCourseInfo && sourceCourseInfo && targetCourseInfo['과목명'] === sourceCourseInfo['과목명']) {
-                       targets.push({ date: selectedDate, period: selectedPeriod, courseCode: targetCourseAtSourcePeriod['강좌코드'], courseName: targetCourseInfo['과목명'], teacherName: target['교사명'], status: '클래스 통합 가능 (합반)' });
+                   // 2. "해당 학급(sourceClassInfo)에 수업이 예정된 선생님" (이번 학기 전체 담당 강좌 중 확인)
+                   const teachesSourceClassInfo = targetCourses.some(code => extractClassInfo(code) === sourceClassInfo);
+                   
+                   if (teachesSourceClassInfo) {
+                       const targetCourseInfo = courses.find(c => c['강좌코드'] === targetCourseAtSourcePeriod['강좌코드']);
+                       const cName = targetCourseInfo ? targetCourseInfo['과목명'] : targetCourseAtSourcePeriod['강좌코드'].split(' ')[0];
+                       
+                       if (makeupType === 'same' && target['교과'] === sourceDept) {
+                           targets.push({ date: sDate, period: selectedPeriod, courseCode: targetCourseAtSourcePeriod['강좌코드'], courseName: cName, teacherName: target['교사명'], status: '동교과 통합 합반' });
+                       } else if (makeupType === 'diff' && target['교과'] !== sourceDept) {
+                           targets.push({ date: sDate, period: selectedPeriod, courseCode: targetCourseAtSourcePeriod['강좌코드'], courseName: cName, teacherName: target['교사명'], status: '타교과 통합 합반' });
+                       }
                    }
                }
            }
@@ -258,7 +284,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
      }
 
      try {
-         const response = await fetch('http://localhost:5000/api/schedule/update', {
+         const response = await fetch('/api/schedule/update', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ payloads })
@@ -266,7 +292,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
          const data = await response.json();
          if (data.success) {
             alert('구글 스프레드시트에 성공적으로 저장되었습니다!');
-            window.location.reload(); // 저장 후 새로고침하여 데이터 동기화
+            if (onUpdate) onUpdate(); // 새로고침 없이 최신 데이터 패치
          } else {
             alert('저장에 실패했습니다: ' + (data.message || '알 수 없는 오류'));
          }
@@ -311,7 +337,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
      }
 
      try {
-         const response = await fetch('http://localhost:5000/api/schedule/update', {
+         const response = await fetch('/api/schedule/update', {
              method: 'POST',
              headers: { 'Content-Type': 'application/json' },
              body: JSON.stringify({ payloads })
@@ -319,7 +345,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
          const data = await response.json();
          if (data.success) {
             alert('변경 내역이 성공적으로 취소(복구) 되었습니다!');
-            window.location.reload();
+            if (onUpdate) onUpdate(); // 새로고침 없이 최신 데이터 패치
          } else {
             alert('취소 처리에 실패했습니다.');
          }
@@ -431,8 +457,8 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
           </select>
         </div>
 
-        {/* 보강일 경우 하위 필터 토글 */}
-        {actionType === 'makeup' && (
+        {/* 보강 및 통합일 경우 하위 필터 토글 */}
+        {(actionType === 'makeup' || actionType === 'merge') && (
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', display: 'flex', width: '100%', border: '1px solid rgba(255,255,255,0.05)' }}>
              <div onClick={() => setMakeupType('same')} style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: '0.8rem', background: makeupType === 'same' ? 'var(--accent)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition-spring)' }}>동교과</div>
              <div onClick={() => setMakeupType('diff')} style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: '0.8rem', background: makeupType === 'diff' ? 'rgba(255,255,255,0.1)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition-spring)' }}>타교과</div>
@@ -449,15 +475,19 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>추천 가능 목록 (TARGET)</span>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>탐색 범위:</span>
-               <select value={searchRange} onChange={(e) => setSearchRange(Number(e.target.value))} 
-                       style={{ background:'rgba(255,255,255,0.05)', color:'white', border:'1px solid rgba(255,255,255,0.1)', padding:'4px 8px', borderRadius:'6px', outline:'none', fontSize:'0.8rem', cursor: 'pointer' }}>
+               <select value={(actionType === 'exchange' || actionType === 'merge') ? searchRange : 0} onChange={(e) => setSearchRange(Number(e.target.value))} 
+                       disabled={!(actionType === 'exchange' || actionType === 'merge')}
+                       style={{ 
+                         background: !(actionType === 'exchange' || actionType === 'merge') ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.05)', 
+                         color: !(actionType === 'exchange' || actionType === 'merge') ? 'rgba(255,255,255,0.3)' : 'white', 
+                         border:'1px solid rgba(255,255,255,0.1)', 
+                         padding:'4px 8px', borderRadius:'6px', outline:'none', fontSize:'0.8rem', 
+                         cursor: !(actionType === 'exchange' || actionType === 'merge') ? 'not-allowed' : 'pointer' 
+                       }}>
                  <option value={0} style={{color:'black'}}>당일만</option>
                  <option value={7} style={{color:'black'}}>±1주일 (14일)</option>
                  <option value={14} style={{color:'black'}}>±2주일 (28일)</option>
                </select>
-               <span style={{ fontSize: '0.8rem', background: 'rgba(74, 144, 226, 0.2)', color: 'var(--text-primary)', padding: '4px 10px', borderRadius: '99px' }}>
-                 스마트 자동 필터링 활성됨
-               </span>
             </div>
           </div>
 

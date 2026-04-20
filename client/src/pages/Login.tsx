@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../index.css';
 
 const Login: React.FC = () => {
   const [loginMethod, setLoginMethod] = useState<'google' | 'local'>('google');
+  const navigate = useNavigate();
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', width: '100%', padding: '20px' }}>
@@ -48,7 +50,11 @@ const Login: React.FC = () => {
           <div style={{ minHeight: '220px' }}>
             {loginMethod === 'google' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', animation: 'fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
-                <button className="btn-primary" style={{ background: '#ffffff', color: '#000000' }}>
+                <button 
+                  className="btn-primary" 
+                  style={{ background: '#ffffff', color: '#000000' }}
+                  onClick={() => navigate('/dashboard')}
+                >
                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo" style={{ width: '20px', height: '20px' }} />
                    구글 계정으로 시작하기
                    <div className="btn-icon-wrapper">
@@ -60,7 +66,7 @@ const Login: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <form onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', animation: 'fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+              <form onSubmit={(e) => { e.preventDefault(); navigate('/dashboard'); }} style={{ display: 'flex', flexDirection: 'column', animation: 'fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
                 <input type="text" placeholder="아이디 (또는 교직원 번호)" required />
                 <input type="password" placeholder="비밀번호" required />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px', fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '0 4px' }}>

@@ -1,0 +1,13 @@
+{
+  "name": "time-schedule",
+  "version": "1.0.0",
+  "description": "서대전여고 시간표 관리 앱",
+  "scripts": {
+    "start": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "node server/index.js",
+    "client": "npm run dev --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
