@@ -342,40 +342,21 @@ OCI 인스턴스 포트 3000
 
 ## 13. 코드 업데이트 (재배포) 방법
 
-로컬에서 코드 수정 후 아래 순서로 배포합니다.
+로컬에서 코드 수정 후 **Git을 활용하여** 쉽고 빠르게 배포합니다.
 
-### 클라이언트(React) 변경 시
-
+### 1단계: 로컬에서 GitHub으로 갱신
 ```powershell
-# 1. 빌드
-cd f:\Kim_Jungho\jihye_webapp\Time_schedule
-npm run build
-
-# 2. 빌드 파일 전송
-scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 -r ".\client\dist\." ubuntu@134.185.98.191:~/time-schedule/client/dist/
-
-# 3. 서버 재시작
-ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 restart time-schedule"
+# 개발 폴더에서 변경 내역을 저장소로 푸시
+git add -A
+git commit -m "수정 내용 요약"
+git push origin main
 ```
 
-### 서버(server/index.js) 변경 시
+### 2단계: OCI 서버 원격 배포 명령어 실행
+코드를 푸시한 후, 로컬 (Windows PowerShell) 에서 아래 한 줄 명령어만 입력하면 서버에서 코드를 Pull 받아 빌드 후 자동 재시작합니다.
 
 ```powershell
-# 1. 파일 전송
-scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ".\server\index.js" ubuntu@134.185.98.191:~/time-schedule/server/index.js
-
-# 2. 서버 재시작
-ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 restart time-schedule"
-```
-
-### 클라이언트 + 서버 동시 변경 시
-
-```powershell
-cd f:\Kim_Jungho\jihye_webapp\Time_schedule
-npm run build
-scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ".\server\index.js" ubuntu@134.185.98.191:~/time-schedule/server/index.js
-scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 -r ".\client\dist\." ubuntu@134.185.98.191:~/time-schedule/client/dist/
-ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 restart time-schedule"
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "cd ~/time-schedule && git pull origin main && cd client && npm install && npm run build && cd ../server && npm install && pm2 restart time-schedule"
 ```
 
 ---
