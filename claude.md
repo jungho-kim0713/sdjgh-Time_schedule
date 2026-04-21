@@ -306,3 +306,120 @@ SPREADSHEET_ID=1PL4z6byN0KRdfupYuYbNiR9H1Sjl5NaXGmKcRhwbd9I
 ```
 
 `google-key.json`은 서비스 계정 비밀키 파일이므로 `.gitignore`에 반드시 포함되어야 함.
+
+---
+
+## 12. OCI 프로덕션 서버
+
+**공인 IP:** `134.185.98.191`  
+**앱 주소:** http://134.185.98.191:3000  
+**SSH 키 경로:** `F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key`  
+**SSH 유저:** `ubuntu`  
+**서버 경로:** `~/time-schedule/`  
+**프로세스 관리:** PM2 (`time-schedule` 이름)
+
+### 배포 구조 (프로덕션)
+
+```
+OCI 인스턴스 포트 3000
+└── Express 서버 (server/index.js)
+    ├── /api/*          → Google Sheets API 처리
+    └── /*              → client/dist 정적 파일 서빙
+```
+
+로컬 개발과 달리 Vite 서버 없음 — Express 하나로 전부 처리.
+
+### OCI 방화벽 설정 현황
+
+| 레이어 | 포트 | 상태 |
+|--------|------|------|
+| OCI Security List | 22 (SSH) | ✅ 오픈 |
+| OCI Security List | 3000 (앱) | ✅ 오픈 |
+| 인스턴스 iptables | 3000 | ✅ 오픈 |
+| iptables NAT | 80 → 3000 포워딩 | ✅ 설정됨 |
+
+---
+
+## 13. 코드 업데이트 (재배포) 방법
+
+로컬에서 코드 수정 후 아래 순서로 배포합니다.
+
+### 클라이언트(React) 변경 시
+
+```powershell
+# 1. 빌드
+cd f:\Kim_Jungho\jihye_webapp\Time_schedule
+npm run build
+
+# 2. 빌드 파일 전송
+scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 -r ".\client\dist\." ubuntu@134.185.98.191:~/time-schedule/client/dist/
+
+# 3. 서버 재시작
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 restart time-schedule"
+```
+
+### 서버(server/index.js) 변경 시
+
+```powershell
+# 1. 파일 전송
+scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ".\server\index.js" ubuntu@134.185.98.191:~/time-schedule/server/index.js
+
+# 2. 서버 재시작
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 restart time-schedule"
+```
+
+### 클라이언트 + 서버 동시 변경 시
+
+```powershell
+cd f:\Kim_Jungho\jihye_webapp\Time_schedule
+npm run build
+scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ".\server\index.js" ubuntu@134.185.98.191:~/time-schedule/server/index.js
+scp -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 -r ".\client\dist\." ubuntu@134.185.98.191:~/time-schedule/client/dist/
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 restart time-schedule"
+```
+
+---
+
+## 14. OCI 서버 관리 명령어
+
+모든 명령어는 Windows PowerShell에서 실행합니다.
+
+### SSH 접속
+
+```powershell
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191
+```
+
+### PM2 서버 상태 확인
+
+```powershell
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 list"
+```
+
+### 실시간 로그 확인
+
+```powershell
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 logs time-schedule --lines 30 --nostream"
+```
+
+### 서버 재시작 / 정지 / 삭제
+
+```powershell
+# 재시작
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 restart time-schedule"
+
+# 정지
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 stop time-schedule"
+
+# 시작 (정지 후 재시작)
+ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "pm2 start time-schedule"
+```
+
+### 외부 접속 빠른 확인 (PowerShell)
+
+```powershell
+Invoke-WebRequest -Uri "http://134.185.98.191:3000/api/health" -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+> ⚠️ **주의:** `pm2 stop` 실행 후 반드시 `pm2 start time-schedule`로 재시작해야 합니다.  
+> 재부팅 후에도 자동 시작되도록 `pm2 startup` + `pm2 save`가 설정되어 있습니다.

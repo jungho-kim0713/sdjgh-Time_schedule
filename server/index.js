@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 // 미들웨어 설정
 app.use(cors()); // 프론트엔드와의 통신 허용
@@ -84,6 +84,23 @@ app.post('/api/schedule/update', async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 });
+
+// ─── 프로덕션: React 빌드 파일 서빙 ──────────────────────────────────────────
+const path = require('path');
+const fs = require('fs');
+const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
+
+if (fs.existsSync(clientBuildPath)) {
+    app.use(express.static(clientBuildPath));
+    // React Router를 위해: /api/* 이외 모든 경로는 index.html 반환
+    app.get('/{*splat}', (req, res) => {
+        res.sendFile(path.join(clientBuildPath, 'index.html'));
+    });
+    console.log('\u2705 React 빌드 파일 감지됨 - 정적 파일 서빙 활성화');
+} else {
+    console.log('\u2139\ufe0f  React 빌드 없음 - API 전용 모드 (로컬 개발)');
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // 서버 실행
 app.listen(PORT, () => {
