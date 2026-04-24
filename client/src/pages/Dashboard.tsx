@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import ScheduleEditor from '../components/ScheduleEditor';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = ['1', '2', '3', '4', '5', '6', '7'];
 
 const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'view' | 'edit'>(() => {
     return (sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit') || 'view';
   });
@@ -234,6 +236,7 @@ const Dashboard: React.FC = () => {
       }}>
         <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 조회</button>
         <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 수정</button>
+        <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>Admin</button>
       </nav>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '60px 40px' }} className="animate-fade-in">

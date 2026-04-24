@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config({ path: require('path').join(__dirname, '.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '.env'), override: true });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -12,6 +12,34 @@ app.use(express.json()); // JSON 요청 본문 파싱
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', message: '서대전여고 시간표 백엔드 서버가 정상 작동중입니다!' });
 });
+
+// ─── 인증 미들웨어 ────────────────────────────────────────────────────────
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_schedule_key_2026';
+
+// 1. 로그인 여부 확인용 미들웨어
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) return res.status(401).json({ success: false, message: '인증 토큰이 제공되지 않았습니다.' });
+    
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(401).json({ success: false, message: '유효하지 않거나 만료된 토큰입니다.' });
+        req.user = user;
+        next();
+    });
+}
+
+// 2. 최고 관리자 권한 확인용 미들웨어
+function isAdmin(req, res, next) {
+    if (req.user && req.user.role === 'Admin') {
+        next();
+    } else {
+        res.status(403).json({ success: false, message: '최고 관리자 권한이 필요합니다.' });
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────
 
 const { sheets } = require('./services/googleAuth');
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
@@ -30,10 +58,10 @@ function parseSheetData(values) {
     });
 }
 
-// 종합 메인 데이터(프론트엔드 테이블 및 필터 렌더용) fetching API
-app.get('/api/data', async (req, res) => {
+// 종합 메인 데이터(프론트엔드 테이블 및 필터 렌더용) fetching API (인증 필요)
+app.get('/api/data', authenticateToken, async (req, res) => {
     try {
-        const ranges = ["'강좌_마스터'!A:G", "'교사_명렬표'!A:H", "'기준_시간표'!A:D", "'일별_시간표'!A:G", "'학생_명렬표'!A:N"];
+        const ranges = ["'강좌_마스터'!A:G", "'교사_명렬표'!A:H", "'기준_시간표'!A:D", "'일별_시간표'!A:G", "'학생_명렬표'!A:N", "'사용자_관리'!A:F"];
         const response = await sheets.spreadsheets.values.batchGet({
             spreadsheetId: SPREADSHEET_ID,
             ranges: ranges
@@ -46,10 +74,11 @@ app.get('/api/data', async (req, res) => {
         const baseSchedules = parseSheetData(valueRanges[2].values); // 기준_시간표
         const dailySchedules = parseSheetData(valueRanges[3].values); // 일별_시간표
         const students = parseSheetData(valueRanges[4].values); // 학생_명렬표
+        const users = parseSheetData(valueRanges[5]?.values || []); // 사용자_관리
 
         res.json({
             success: true,
-            data: { courses, teachers, baseSchedules, dailySchedules, students }
+            data: { courses, teachers, baseSchedules, dailySchedules, students, users }
         });
 
     } catch (error) {
@@ -58,8 +87,8 @@ app.get('/api/data', async (req, res) => {
     }
 });
 
-// 시간표 변경 승인 및 DB 저장(Append) 로직
-app.post('/api/schedule/update', async (req, res) => {
+// 시간표 변경 승인 및 DB 저장(Append) 로직 (인증 필요)
+app.post('/api/schedule/update', authenticateToken, async (req, res) => {
     try {
         const { payloads } = req.body;
         if (!payloads || payloads.length === 0) {
@@ -81,6 +110,121 @@ app.post('/api/schedule/update', async (req, res) => {
     } catch (error) {
         console.error('업데이트 저장 에러:', error);
         res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 사용자 판별 및 상태/권한 업데이트 로직 (관리자만 가능)
+app.post('/api/users/update', authenticateToken, isAdmin, async (req, res) => {
+    try {
+        const { email, role, status } = req.body;
+        
+        // 1. 현재 사용자_관리 시트 데이터 가져오기
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "'사용자_관리'!A:F"
+        });
+        const rows = response.data.values;
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ success: false, message: '사용자 데이터를 찾을 수 없습니다.' });
+        }
+
+        // 2. 이메일(A열) 기반으로 해당 사용자의 행(Row) 번호 찾기 (헤더가 1행이므로 +1)
+        let targetRowIndex = -1;
+        for (let i = 1; i < rows.length; i++) {
+            if (rows[i][0] === email) {
+                targetRowIndex = i + 1; 
+                break;
+            }
+        }
+
+        if (targetRowIndex === -1) {
+             return res.status(404).json({ success: false, message: '해당 이메일의 사용자가 시트에 존재하지 않습니다.' });
+        }
+
+        // 3. 업데이트할 행 데이터 복사 및 수정 (최대 6열)
+        const currentRowData = [...rows[targetRowIndex - 1]]; 
+        while(currentRowData.length < 6) currentRowData.push('');
+        
+        currentRowData[3] = role;   // D열: 권한
+        currentRowData[4] = status; // E열: 상태
+
+        // 4. 구글 시트 해당 행 업데이트
+        await sheets.spreadsheets.values.update({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `'사용자_관리'!A${targetRowIndex}:F${targetRowIndex}`,
+            valueInputOption: "USER_ENTERED",
+            resource: { values: [currentRowData] }
+        });
+
+        res.json({ success: true, message: '사용자 상태가 성공적으로 업데이트되었습니다.' });
+    } catch (error) {
+        console.error('사용자 업데이트 에러:', error);
+        res.status(500).json({ success: false, message: '업데이트 중 서버 오류가 발생했습니다.' });
+    }
+});
+
+// 구글 로그인 및 JWT 발급 라우트
+const { OAuth2Client } = require('google-auth-library');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+app.post('/api/auth/google', async (req, res) => {
+    try {
+        const { credential } = req.body;
+        
+        if (!credential) {
+            console.log('구글에서 빈 자격증명을 리턴했습니다. (origin 또는 브라우저 캐시 문제)');
+            return res.status(400).json({ success: false, message: '유효한 구글 토큰을 받지 못했습니다. 크롬 시크릿 창에서 테스트해주세요.' });
+        }
+
+        const ticket = await client.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        const { email, name } = payload;
+        
+        // 시트 확인
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: "'사용자_관리'!A:F"
+        });
+        const rows = response.data.values || [];
+        
+        let userRow = null;
+        for(let i = 1; i < rows.length; i++) {
+            if(rows[i][0] === email) {
+                userRow = rows[i];
+                break;
+            }
+        }
+        
+        if (userRow) {
+            const role = userRow[3] || 'User';
+            const status = userRow[4] || 'Pending';
+            
+            if (status === 'Pending') {
+                return res.json({ success: false, status: 'Pending', message: '가입 승인 대기 중입니다. 관리자에게 문의하세요.' });
+            }
+            
+            // Active 유저라면 JWT 발급
+            const token = jwt.sign({ email, name, role }, JWT_SECRET, { expiresIn: '7d' });
+            return res.json({ success: true, token, user: { email, name, role, status } });
+            
+        } else {
+            // 미가입 유저 -> 시트에 Pending으로 바로 추가 (임시용 교사ID는 비워둡니다)
+            const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+            await sheets.spreadsheets.values.append({
+                spreadsheetId: SPREADSHEET_ID,
+                range: "'사용자_관리'!A:F",
+                valueInputOption: "USER_ENTERED",
+                resource: { values: [[email, name, '', 'User', 'Pending', now]] }
+            });
+            return res.json({ success: false, status: 'Pending', message: '사이트에 첫 접근하여 가입 신청이 되었습니다. 관리자 승인 후 재로그인 해주세요.' });
+        }
+        
+    } catch (err) {
+        console.error('인증 에러 상세 내용:', err.message, err.stack);
+        res.status(401).json({ success: false, message: `구글 토큰 검증 실패: ${err.message}` });
     }
 });
 
