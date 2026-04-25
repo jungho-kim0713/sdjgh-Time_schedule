@@ -33,10 +33,20 @@ function authenticateToken(req, res, next) {
 
 // 2. 최고 관리자 권한 확인용 미들웨어
 function isAdmin(req, res, next) {
-    if (req.user && req.user.role === 'Admin') {
+    if (req.user && req.user.role.trim() === '관리자') {
         next();
     } else {
         res.status(403).json({ success: false, message: '최고 관리자 권한이 필요합니다.' });
+    }
+}
+
+// 3. 시간표 수정 권한 확인용 미들웨어 (학생 제외)
+function canEditSchedule(req, res, next) {
+    const role = req.user && req.user.role.trim();
+    if (role && role !== '학생') {
+        next();
+    } else {
+        res.status(403).json({ success: false, message: '시간표 수정 권한이 없습니다.' });
     }
 }
 // ─────────────────────────────────────────────────────────────────────────
@@ -87,8 +97,8 @@ app.get('/api/data', authenticateToken, async (req, res) => {
     }
 });
 
-// 시간표 변경 승인 및 DB 저장(Append) 로직 (인증 필요)
-app.post('/api/schedule/update', authenticateToken, async (req, res) => {
+// 시간표 변경 승인 및 DB 저장(Append) 로직 (인증 필요, 학생 제외)
+app.post('/api/schedule/update', authenticateToken, canEditSchedule, async (req, res) => {
     try {
         const { payloads } = req.body;
         if (!payloads || payloads.length === 0) {
@@ -199,8 +209,8 @@ app.post('/api/auth/google', async (req, res) => {
         }
         
         if (userRow) {
-            const role = userRow[3] || 'User';
-            const status = userRow[4] || 'Pending';
+            const role = (userRow[3] || 'User').trim();
+            const status = (userRow[4] || 'Pending').trim();
             
             if (status === 'Pending') {
                 return res.json({ success: false, status: 'Pending', message: '가입 승인 대기 중입니다. 관리자에게 문의하세요.' });
@@ -217,7 +227,7 @@ app.post('/api/auth/google', async (req, res) => {
                 spreadsheetId: SPREADSHEET_ID,
                 range: "'사용자_관리'!A:F",
                 valueInputOption: "USER_ENTERED",
-                resource: { values: [[email, name, '', 'User', 'Pending', now]] }
+                resource: { values: [[email, name, '', '학생', 'Pending', now]] }
             });
             return res.json({ success: false, status: 'Pending', message: '사이트에 첫 접근하여 가입 신청이 되었습니다. 관리자 승인 후 재로그인 해주세요.' });
         }

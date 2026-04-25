@@ -2,37 +2,41 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ScheduleEditor from '../components/ScheduleEditor';
+import ScheduleAnalysis from '../components/ScheduleAnalysis';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = ['1', '2', '3', '4', '5', '6', '7'];
 
+const CLASS_OPTIONS: string[] = [];
+for (let g = 1; g <= 3; g++) {
+  for (let c = 1; c <= 8; c++) {
+    CLASS_OPTIONS.push(`${g}-${c}`);
+  }
+}
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'view' | 'edit'>(() => {
-    return (sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit') || 'view';
-  });
+  const [activeTab, setActiveTab] = useState<'view' | 'edit' | 'analyze'>('view');
 
   useEffect(() => {
     sessionStorage.setItem('dashboard_activeTab', activeTab);
   }, [activeTab]);
 
-  const [scheduleData, setScheduleData] = useState<any[]>([]); // 기준_시간표
-  const [dailySchedules, setDailySchedules] = useState<any[]>([]); // 일별_시간표
+  const [scheduleData, setScheduleData] = useState<any[]>([]);
+  const [dailySchedules, setDailySchedules] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // 조회용 상태
+
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('all');
+  const [selectedClass, setSelectedClass] = useState<string>('none');
   const [userRole, setUserRole] = useState<string>('');
-  
-  // 타겟 날짜 (주 단위 필터링 용도)
+
   const [targetDate, setTargetDate] = useState<string>(() => {
      return new Date().toISOString().split('T')[0];
   });
-  
-  // 모달 제어용
+
   const [selectedCell, setSelectedCell] = useState<any>(null);
 
   useEffect(() => {
@@ -41,7 +45,16 @@ const Dashboard: React.FC = () => {
       try {
         const user = JSON.parse(userStr);
         setUserRole(user.role);
+        const saved = sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit' | 'analyze';
+        if (saved === 'edit' && user.role === '학생') {
+          setActiveTab('view');
+        } else if (saved) {
+          setActiveTab(saved);
+        }
       } catch (e) {}
+    } else {
+      const saved = sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit';
+      if (saved) setActiveTab(saved);
     }
   }, []);
 
@@ -66,11 +79,10 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  // 타겟 날짜가 속한 주의 월~금 날짜 뽑기
   const weekDates = useMemo(() => {
      const d = new Date(targetDate);
-     const day = d.getDay() || 7; 
-     d.setDate(d.getDate() - day + 1); // 월요일로
+     const day = d.getDay() || 7;
+     d.setDate(d.getDate() - day + 1);
      return DAYS.map((_, idx) => {
         const nd = new Date(d);
         nd.setDate(d.getDate() + idx);
@@ -91,12 +103,10 @@ const Dashboard: React.FC = () => {
     if (selectedSubject !== 'all') {
       list = teachers.filter(t => t['교과'] === selectedSubject);
     }
-    
     return [...list].sort((a, b) => (a['교사명'] || '').localeCompare(b['교사명'] || ''));
   }, [teachers, selectedSubject]);
 
   useEffect(() => {
-    // 교과 선택이 변경되었을 때 선택된 교사가 필터링된 목록에 없으면 '전체'로 초기화
     if (selectedTeacherId !== 'all') {
       const isTeacherInList = filteredTeachers.some(t => t['교사명'] === selectedTeacherId);
       if (!isTeacherInList) {
@@ -105,7 +115,38 @@ const Dashboard: React.FC = () => {
     }
   }, [selectedSubject, filteredTeachers, selectedTeacherId]);
 
-  // 특정 기준일 & 교시에 대한 최종 시간표(Override 포함) 계산
+  // 교사 선택 시 학급 선택 초기화, 학급 선택 시 교사 선택 초기화
+  const handleTeacherChange = (val: string) => {
+    setSelectedTeacherId(val);
+    if (val !== 'all') setSelectedClass('none');
+  };
+
+  const handleClassChange = (val: string) => {
+    setSelectedClass(val);
+    if (val !== 'none') {
+      setSelectedTeacherId('all');
+      setSelectedSubject('all');
+    }
+  };
+
+  const viewMode = useMemo(() => {
+    if (selectedClass !== 'none') return 'class';
+    if (selectedTeacherId !== 'all') return 'teacher';
+    return 'all';
+  }, [selectedClass, selectedTeacherId]);
+
+  const isSpecialCourse = (code: string) => {
+    return code === '자율(전체)' || code === '클럽(전체)' || code === '자습(전체)' || code.startsWith('부장(회의)');
+  };
+
+  const getSpecialStyle = (code: string): { color: string; bg: string; emoji: string } => {
+    if (code === '자율(전체)') return { color: '#bd93f9', bg: 'rgba(189,147,249,0.15)', emoji: '🌿' };
+    if (code === '클럽(전체)') return { color: '#ffb86c', bg: 'rgba(255,184,108,0.15)', emoji: '🎯' };
+    if (code === '자습(전체)') return { color: '#8be9fd', bg: 'rgba(139,233,253,0.15)', emoji: '📖' };
+    if (code.startsWith('부장(회의)')) return { color: '#ff79c6', bg: 'rgba(255,121,198,0.15)', emoji: '📋' };
+    return { color: 'white', bg: 'transparent', emoji: '' };
+  };
+
   const getSchedulesForCell = (dateStr: string, dayStr: string, period: string) => {
      let baseList = scheduleData.filter(s => s['요일'] === dayStr && String(s['교시']) === String(period));
      const changes = dailySchedules.filter(d => d['날짜'] === dateStr && String(d['교시']) === String(period));
@@ -140,32 +181,117 @@ const Dashboard: React.FC = () => {
              }
          }
      });
-     
+
      return baseList;
+  };
+
+  // 학급 시간표 뷰용
+  const getCourseForClass = (dateStr: string, day: string, period: string) => {
+    const allSchedules = getSchedulesForCell(dateStr, day, period);
+
+    const classSchedules = allSchedules.filter(s => {
+      if (s['강좌코드'] === '자율(전체)') return true;
+      if (s['강좌코드'] === '클럽(전체)') return true;
+      return s['강좌코드'].includes(`(${selectedClass})`);
+    });
+
+    const isSelfStudy = dailySchedules.some(d =>
+      d['날짜'] === dateStr && String(d['교시']) === period &&
+      d['강좌코드'].includes(`(${selectedClass})`) && d['상태'] === '자습'
+    );
+
+    if (classSchedules.length === 0 || isSelfStudy) {
+      const s = getSpecialStyle('자습(전체)');
+      return {
+        elements: <div style={{ color: s.color, fontWeight: 600, fontSize: '0.95rem' }}>{s.emoji} 자습</div>,
+        isSpecial: '자습',
+        raw: []
+      };
+    }
+
+    if (classSchedules.some(s => s['강좌코드'] === '자율(전체)')) {
+      const s = getSpecialStyle('자율(전체)');
+      return {
+        elements: <div style={{ color: s.color, fontWeight: 600, fontSize: '0.95rem' }}>{s.emoji} 자율</div>,
+        isSpecial: '자율',
+        raw: classSchedules
+      };
+    }
+
+    if (classSchedules.some(s => s['강좌코드'] === '클럽(전체)')) {
+      const s = getSpecialStyle('클럽(전체)');
+      return {
+        elements: <div style={{ color: s.color, fontWeight: 600, fontSize: '0.95rem' }}>{s.emoji} 클럽</div>,
+        isSpecial: '클럽',
+        raw: classSchedules
+      };
+    }
+
+    const item = classSchedules[0];
+    const courseInfo = courses.find(c => c['강좌코드'] === item['강좌코드']);
+    const subjectName = courseInfo ? courseInfo['과목명'] : item['강좌코드'].split('(')[0];
+    const teacherName = item.isOverride
+      ? item['담당교사']
+      : (courseInfo ? courseInfo['담당교사'] : item['담당교사'] || '');
+
+    return {
+      elements: (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontWeight: 600, color: item.isOverride ? '#a8ffb2' : 'white' }}>{subjectName}</span>
+          <span style={{ fontSize: '0.85rem', color: item.isOverride ? '#a8ffb2' : 'var(--text-secondary)' }}>{teacherName}</span>
+          {item.isOverride && (
+            <span style={{ fontSize: '0.7rem', color: '#ff5555', background: 'rgba(255,85,85,0.2)', padding: '2px 4px', borderRadius: '4px' }}>{item.status}</span>
+          )}
+        </div>
+      ),
+      raw: classSchedules,
+      isSpecial: undefined as string | undefined
+    };
   };
 
   const getCourseForCell = (dateStr: string, day: string, period: string) => {
     let matched = getSchedulesForCell(dateStr, day, period);
 
-    // 특정 교사 선택 시
     if (selectedTeacherId !== 'all') {
       const teacherCourses = courses
-          .filter(c => c['담당교사'] === selectedTeacherId || c['교사ID'] === selectedTeacherId)
+          .filter(c => c['담당교사'] === selectedTeacherId)
           .map(c => c['강좌코드']);
-          
-      matched = matched.filter(m => {
+
+      const myScheduled = matched.filter(m => {
           if (m.isOverride) return m['담당교사'] === selectedTeacherId;
           return teacherCourses.includes(m['강좌코드']);
       });
-      
-      if(matched.length === 0) return { elements: null, raw: [] };
-      
-      const components = matched.map((m, idx) => {
+
+      if (myScheduled.length === 0) {
+        const hasClub = matched.some(m => m['강좌코드'] === '클럽(전체)');
+        const myBujan = matched.find(m => m['강좌코드'].startsWith('부장(회의)') && teacherCourses.includes(m['강좌코드']));
+
+        if (hasClub) {
+          const s = getSpecialStyle('클럽(전체)');
+          return { elements: <div style={{ color: s.color, fontWeight: 600, fontSize: '0.95rem' }}>{s.emoji} 클럽</div>, raw: [], isSpecial: '클럽' };
+        }
+        if (myBujan) {
+          const s = getSpecialStyle('부장(회의)');
+          return { elements: <div style={{ color: s.color, fontWeight: 600, fontSize: '0.95rem' }}>{s.emoji} 부장회의</div>, raw: [myBujan], isSpecial: '부장회의' };
+        }
+        return { elements: null, raw: [] };
+      }
+
+      const components = myScheduled.map((m, idx) => {
          const courseInfo = courses.find(c => c['강좌코드'] === m['강좌코드']);
          const subjectName = courseInfo ? courseInfo['과목명'] : m['강좌코드'].split('(')[0];
-         const match = m['강좌코드'].match(/(\(.*?\))/);
-         const classGroup = match ? match[1] : '';
-         
+         const matchCode = m['강좌코드'].match(/(\([^\[]*?\))/);
+         const classGroup = matchCode ? matchCode[1] : '';
+
+         if (isSpecialCourse(m['강좌코드'])) {
+           const s = getSpecialStyle(m['강좌코드']);
+           return (
+             <div key={idx} style={{ color: s.color, fontWeight: 600, fontSize: '0.95rem' }}>
+               {s.emoji} {subjectName}
+             </div>
+           );
+         }
+
          return (
             <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                <span style={{ fontWeight: 600, color: m.isOverride ? '#a8ffb2' : 'white' }}>{subjectName}</span>
@@ -174,14 +300,28 @@ const Dashboard: React.FC = () => {
             </div>
          );
       });
-      return { elements: <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>{components}</div>, raw: matched };
+      return { elements: <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>{components}</div>, raw: myScheduled };
     }
 
-    // 전체 교사 선택 시 (Summary View)
-    if(matched.length === 0) return { elements: null, raw: [] };
-    
+    // 전체 요약 뷰
+    const specialItems = matched.filter(m => isSpecialCourse(m['강좌코드']));
+    const normalItems = matched.filter(m => !isSpecialCourse(m['강좌코드']));
+
+    if(normalItems.length === 0 && specialItems.length === 0) return { elements: null, raw: [] };
+
+    if (specialItems.some(m => m['강좌코드'] === '자율(전체)')) {
+      const s = getSpecialStyle('자율(전체)');
+      return { elements: <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem', padding: '4px' }}>{s.emoji} 자율 시간</div>, raw: specialItems, isSpecial: '자율' };
+    }
+    if (specialItems.some(m => m['강좌코드'] === '클럽(전체)')) {
+      const s = getSpecialStyle('클럽(전체)');
+      return { elements: <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem', padding: '4px' }}>{s.emoji} 클럽 시간</div>, raw: specialItems, isSpecial: '클럽' };
+    }
+
+    if(normalItems.length === 0) return { elements: null, raw: [] };
+
     const gradeCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0 };
-    matched.forEach(m => {
+    normalItems.forEach(m => {
         const match = m['강좌코드'].match(/(\((.*?)-(.*?)\))/);
         if (match) {
             const grade = match[2];
@@ -189,13 +329,17 @@ const Dashboard: React.FC = () => {
         }
     });
 
-    const hasOverride = matched.some((m: any) => m.isOverride);
-    
+    const hasOverride = normalItems.some((m: any) => m.isOverride);
+    const bujanCount = specialItems.filter(m => m['강좌코드'].startsWith('부장(회의)')).length;
+
     return {
        elements: (
-          <div onClick={() => setSelectedCell({ dateStr, day, period, matched })} 
+          <div onClick={() => setSelectedCell({ dateStr, day, period, matched: normalItems })}
                style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative', width: '100%', height: '100%', cursor: 'pointer', alignItems: 'center', justifyContent: 'center' }}>
             {hasOverride && <div style={{ position:'absolute', top:'-10px', right:'-10px', width:'10px', height:'10px', borderRadius:'50%', background:'#ff5555', boxShadow:'0 0 10px #ff5555' }} />}
+            {bujanCount > 0 && (
+              <div style={{ fontSize: '0.75rem', color: '#ff79c6', background: 'rgba(255,121,198,0.1)', padding: '2px 6px', borderRadius: '4px' }}>📋 부장회의 {bujanCount}명</div>
+            )}
             {[1,2,3].map(g => gradeCounts[g] > 0 ? (
                <div key={g} style={{ fontSize: '0.9rem', width: '100%', background: 'rgba(255,255,255,0.05)', padding: '4px 0', borderRadius: '4px' }}>
                  <span style={{color: '#ffb86c'}}>{g}학년</span> {gradeCounts[g]}강좌
@@ -218,7 +362,7 @@ const Dashboard: React.FC = () => {
         const subject = courseInfo ? courseInfo['과목명'] : m['강좌코드'].split('(')[0];
         let teacher = courseInfo ? courseInfo['담당교사'] : '';
         if (m.isOverride) teacher = m['담당교사'];
-        
+
         const match = m['강좌코드'].match(/(\((.*?)-(.*?)\))/);
         if (match) {
            const grade = match[2];
@@ -265,33 +409,66 @@ const Dashboard: React.FC = () => {
      );
   }
 
+  const dropdownStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.05)',
+    padding: '6px 16px',
+    borderRadius: '16px',
+    border: '1px solid rgba(255,255,255,0.1)',
+    display: 'flex',
+    alignItems: 'center',
+  };
+
+  const selectStyle: React.CSSProperties = {
+    background: 'transparent',
+    color: 'white',
+    border: 'none',
+    outline: 'none',
+    fontSize: '1rem',
+    fontFamily: 'Pretendard',
+    cursor: 'pointer',
+    width: '100%',
+  };
+
+  const labelStyle: React.CSSProperties = {
+    fontSize: '0.85rem',
+    color: 'var(--text-secondary)',
+    marginRight: '12px',
+    minWidth: '60px',
+  };
+
   return (
     <div style={{ minHeight: '100vh', paddingBottom: '100px' }}>
-      
+
       <nav style={{
         position: 'sticky', top: '20px', margin: '0 auto', width: 'max-content', display: 'flex', gap: '8px', padding: '8px',
         background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)',
         borderRadius: '9999px', zIndex: 50, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.5)', animation: 'fadeInUp 0.8s'
       }}>
         <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 조회</button>
-        <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 수정</button>
-        {userRole === 'Admin' && (
+        {userRole !== '학생' && (
+          <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 수정</button>
+        )}
+        {userRole !== '학생' && (
+          <button onClick={() => setActiveTab('analyze')} style={{ background: activeTab === 'analyze' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'analyze' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 분석</button>
+        )}
+        {userRole === '관리자' && (
           <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>관리자</button>
         )}
+        <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }} style={{ background: 'transparent', color: '#ff5555', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)' }}>로그아웃</button>
       </nav>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '60px 40px' }} className="animate-fade-in">
-        
+
         <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <span style={{ borderRadius: '9999px', padding: '6px 12px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600, background: 'var(--glass-outer)', color: 'var(--text-secondary)' }}>
-              {activeTab === 'view' ? 'My Schedule' : 'Schedule Management'}
+              {activeTab === 'view' ? 'My Schedule' : activeTab === 'edit' ? 'Schedule Management' : 'Schedule Analysis'}
             </span>
             <h1 style={{ fontSize: '3.5rem', fontWeight: 600, marginTop: '20px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              {activeTab === 'view' ? '주간 시간표 조회' : '시간표 교체 및 통합'}
+              {activeTab === 'view' ? '주간 시간표 조회' : activeTab === 'edit' ? '시간표 교체 및 통합' : '과목별 수업 시간 분석'}
             </h1>
           </div>
-          
+
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             {activeTab === 'view' && (
                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
@@ -300,46 +477,102 @@ const Dashboard: React.FC = () => {
                         style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', colorScheme: 'dark' }} />
                </div>
             )}
-            
-            {activeTab === 'view' && !loading && teachers.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px', minWidth: '60px' }}>교과 선택</label>
-                  <select 
-                    value={selectedSubject} 
-                    onChange={(e) => setSelectedSubject(e.target.value)}
-                    style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', width: '100%' }}
-                  >
-                    <option style={{color:'black'}} value="all">전체</option>
-                    {subjects.map(s => (
-                      <option style={{color:'black'}} key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
 
-                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px', minWidth: '60px' }}>강사 선택</label>
-                  <select 
-                    value={selectedTeacherId} 
-                    onChange={(e) => setSelectedTeacherId(e.target.value)}
-                    style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', width: '100%' }}
-                  >
-                    <option style={{color:'black'}} value="all">전체 (모든 강좌)</option>
-                    {filteredTeachers.map(t => (
-                      <option style={{color:'black'}} key={t['교사ID'] || t['교사명']} value={t['교사명']}>
-                        {t['교사명']} 선생님
-                      </option>
-                    ))}
-                  </select>
+            {activeTab === 'view' && !loading && teachers.length > 0 && (
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                {/* 교과/강사 선택 — 학생 권한 숨김 */}
+                {userRole !== '학생' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={dropdownStyle}>
+                      <label style={labelStyle}>교과 선택</label>
+                      <select
+                        value={selectedSubject}
+                        onChange={(e) => setSelectedSubject(e.target.value)}
+                        style={selectStyle}
+                      >
+                        <option style={{color:'black'}} value="all">전체</option>
+                        {subjects.map(s => (
+                          <option style={{color:'black'}} key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={dropdownStyle}>
+                      <label style={labelStyle}>강사 선택</label>
+                      <select
+                        value={selectedTeacherId}
+                        onChange={(e) => handleTeacherChange(e.target.value)}
+                        style={selectStyle}
+                      >
+                        <option style={{color:'black'}} value="all">전체 (모든 강좌)</option>
+                        {filteredTeachers.map(t => (
+                          <option style={{color:'black'}} key={t['교사ID'] || t['교사명']} value={t['교사명']}>
+                            {t['교사명']} 선생님
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* 학급/학생 선택 */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{
+                    ...dropdownStyle,
+                    border: selectedClass !== 'none'
+                      ? '1px solid rgba(139,233,253,0.4)'
+                      : '1px solid rgba(255,255,255,0.1)',
+                    background: selectedClass !== 'none'
+                      ? 'rgba(139,233,253,0.08)'
+                      : 'rgba(255,255,255,0.05)',
+                  }}>
+                    <label style={labelStyle}>학급 선택</label>
+                    <select
+                      value={selectedClass}
+                      onChange={(e) => handleClassChange(e.target.value)}
+                      style={{ ...selectStyle, color: selectedClass !== 'none' ? '#8be9fd' : 'white' }}
+                    >
+                      <option style={{color:'black'}} value="none">선택 안 함</option>
+                      {[1, 2, 3].map(g => (
+                        <optgroup key={g} label={`${g}학년`}>
+                          {Array.from({ length: 8 }, (_, i) => `${g}-${i + 1}`).map(cls => (
+                            <option style={{color:'black'}} key={cls} value={cls}>{cls}반</option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ ...dropdownStyle, opacity: 0.45, cursor: 'not-allowed' }}>
+                    <label style={labelStyle}>학생 선택</label>
+                    <select disabled style={{ ...selectStyle, cursor: 'not-allowed' }}>
+                      <option>준비 중</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
           </div>
         </div>
 
+        {/* 학급 선택 시 헤더 배지 */}
+        {activeTab === 'view' && selectedClass !== 'none' && (
+          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ background: 'rgba(139,233,253,0.15)', border: '1px solid rgba(139,233,253,0.4)', color: '#8be9fd', borderRadius: '9999px', padding: '6px 16px', fontSize: '0.9rem', fontWeight: 600 }}>
+              📚 {selectedClass}반 주간 시간표
+            </span>
+            <button
+              onClick={() => setSelectedClass('none')}
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', borderRadius: '9999px', padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer' }}
+            >
+              ✕ 초기화
+            </button>
+          </div>
+        )}
+
         <div className="double-bezel-outer">
           <div className="double-bezel-inner" style={{ minHeight: '600px', overflowX: 'auto', padding: '40px' }}>
-            
+
             {loading ? (
               <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '100px' }}>데이터를 불러오는 중입니다...</div>
             ) : activeTab === 'view' ? (
@@ -362,45 +595,60 @@ const Dashboard: React.FC = () => {
                         {period}교시
                       </td>
                       {weekDates.map((dateStr, idx) => {
-                        const day = DAYS[idx];
-                        const { elements, raw } = getCourseForCell(dateStr, day, period);
-                        const hasOverride = raw.some((m: any) => m.isOverride);
-                        const isHoverable = selectedTeacherId === 'all' && elements;
+                         const day = DAYS[idx];
+                         const result = viewMode === 'class'
+                           ? getCourseForClass(dateStr, day, period)
+                           : getCourseForCell(dateStr, day, period);
+                         const { elements, raw } = result;
+                         const isSpecial = (result as any).isSpecial;
+                         const hasOverride = raw.some((m: any) => m.isOverride);
+                         const isHoverable = viewMode === 'all' && elements && !isSpecial;
 
-                        return (
-                          <td key={`${dateStr}-${period}`} style={{ 
-                            padding: isHoverable ? '0' : '20px 16px', 
-                            background: elements ? (hasOverride ? 'rgba(74, 226, 144, 0.15)' : 'rgba(74, 144, 226, 0.1)') : 'rgba(255,255,255,0.02)', 
-                            borderRadius: '12px', 
-                            textAlign: 'center',
-                            border: elements ? (hasOverride ? '1px solid rgba(74, 226, 144, 0.4)' : '1px solid rgba(74, 144, 226, 0.3)') : '1px solid rgba(255,255,255,0.05)',
-                            transition: 'var(--transition-spring)',
-                            boxShadow: elements ? '0 4px 15px rgba(0,0,0,0.1)' : 'none'
-                          }}>
-                              <div style={{ padding: isHoverable ? '20px 16px' : '0', width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize: '0.95rem', fontWeight: elements ? 600 : 400, color: elements ? 'white' : 'var(--text-secondary)' }}>
-                                {elements || '-'}
-                              </div>
-                          </td>
-                        )
-                      })}
+                         let cellBg = 'rgba(255,255,255,0.02)';
+                         let cellBorder = '1px solid rgba(255,255,255,0.05)';
+                         if (isSpecial === '자율') { cellBg = 'rgba(189,147,249,0.1)'; cellBorder = '1px solid rgba(189,147,249,0.3)'; }
+                         else if (isSpecial === '클럽') { cellBg = 'rgba(255,184,108,0.1)'; cellBorder = '1px solid rgba(255,184,108,0.3)'; }
+                         else if (isSpecial === '자습') { cellBg = 'rgba(139,233,253,0.05)'; cellBorder = '1px dashed rgba(139,233,253,0.2)'; }
+                         else if (isSpecial === '부장회의') { cellBg = 'rgba(255,121,198,0.1)'; cellBorder = '1px solid rgba(255,121,198,0.3)'; }
+                         else if (elements) { cellBg = hasOverride ? 'rgba(74, 226, 144, 0.15)' : 'rgba(74, 144, 226, 0.1)'; cellBorder = hasOverride ? '1px solid rgba(74, 226, 144, 0.4)' : '1px solid rgba(74, 144, 226, 0.3)'; }
+
+                         return (
+                           <td key={`${dateStr}-${period}`} style={{
+                             padding: isHoverable ? '0' : '20px 16px',
+                             background: cellBg,
+                             borderRadius: '12px',
+                             textAlign: 'center',
+                             border: cellBorder,
+                             transition: 'var(--transition-spring)',
+                             boxShadow: elements && !isSpecial ? '0 4px 15px rgba(0,0,0,0.1)' : 'none'
+                           }}>
+                               <div style={{ padding: isHoverable ? '20px 16px' : '0', width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize: '0.95rem', fontWeight: elements ? 600 : 400, color: elements ? 'white' : 'var(--text-secondary)' }}>
+                                 {elements || '-'}
+                               </div>
+                           </td>
+                         )
+                       })}
                     </tr>
                   ))}
                 </tbody>
               </table>
+            ) : activeTab === 'analyze' ? (
+                <ScheduleAnalysis courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} />
+            ) : userRole === '학생' ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '100px' }}>시간표 수정 권한이 없습니다.</div>
             ) : (
                 <ScheduleEditor courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} teachers={teachers} onUpdate={fetchData} />
             )}
-            
+
           </div>
         </div>
 
       </main>
 
-      {/* 모달 팝업 */}
       {selectedCell && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', animation: 'fadeIn 0.2s' }} 
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', animation: 'fadeIn 0.2s' }}
              onClick={() => setSelectedCell(null)}>
-           <div style={{ background: 'var(--glass-outer)', border: '1px solid var(--glass-border)', borderRadius: '24px', width: '100%', maxWidth: '1200px', maxHeight: '90vh', overflowY: 'auto', padding: '40px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s' }} 
+           <div style={{ background: 'var(--glass-outer)', border: '1px solid var(--glass-border)', borderRadius: '24px', width: '100%', maxWidth: '1200px', maxHeight: '90vh', overflowY: 'auto', padding: '40px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s' }}
                 onClick={e => e.stopPropagation()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
                  <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 600 }}>{selectedCell.dateStr} ({selectedCell.day}) {selectedCell.period}교시 - 전체 학급 배치도</h2>

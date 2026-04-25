@@ -27,8 +27,9 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
   }, [sourceTeacher]);
 
   // 중앙 액션 State
-  const [actionType, setActionType] = useState<string>('exchange'); // exchange, makeup, selfStudy, merge
+  const [actionType, setActionType] = useState<string>('exchange'); // exchange, makeup, realMakeup, selfStudy, merge
   const [makeupType, setMakeupType] = useState<string>('same'); // same(동교과), diff(타교과)
+  const [realMakeupType, setRealMakeupType] = useState<string>('selfStudyTime'); // selfStudyTime(자습 시간), classTime(수업 시간)
   
   // 우측 필터 범위 State
   const [searchRange, setSearchRange] = useState<number>(7); // 탐색 허용 일수 (기본 7일)
@@ -99,9 +100,19 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                  if (sInfo) {
                      baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: '이동(IN)', _previewAdded: true });
                  }
+             } else if (actionType === 'realMakeup') {
+                 if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
+                     baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
+                 }
+                 if (dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
+                     const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
+                     if (sInfo) {
+                         baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: '보강', _previewAdded: true });
+                     }
+                 }
              }
          }
-         if (teacherName === previewTgt.teacherName) {
+         if (teacherName === previewTgt.teacherName && previewTgt.teacherName !== '비어있음') {
              if (actionType === 'exchange') {
                  if (dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
                      baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
@@ -109,12 +120,21 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                  if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
                      baseList.push({ 강좌코드: previewTgt.courseCode, isOverride: true, status: '이동(IN)', _previewAdded: true });
                  }
+             } else if (actionType === 'realMakeup') {
+                 if (dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
+                     baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
+                 }
              } else {
                  if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
-                     const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
-                     if (sInfo) {
-                         const statusText = actionType === 'makeup' ? '보강' : actionType === 'selfStudy' ? '자습' : '통합';
-                         baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: statusText, _previewAdded: true });
+                     if (actionType === 'merge') {
+                         // 통합: 대상 교사의 기존 수업에 원본 학급 학생이 합류 → 기존 수업을 통합 표시로 변경
+                         baseList = baseList.map(b => ({ ...b, isOverride: true, status: '통합', _previewAdded: true }));
+                     } else {
+                         const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
+                         if (sInfo) {
+                             const statusText = actionType === 'makeup' ? '대강' : '자습';
+                             baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: statusText, _previewAdded: true });
+                         }
                      }
                  }
              }
@@ -218,6 +238,14 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
     const sourceSchedule = sourceSchedules.find(s => s['교시'] === selectedPeriod);
     if (!sourceSchedule) return [];
 
+
+    // uc218uc5c5 uc790uc2b5: ub300uc0c1 uc120uc0ddub2d8 uc5c6uc774 ud574ub2f9 uc218uc5c5uc744 uc790uc2b5uc73cub85c uc804ud658
+    if (actionType === 'selfStudy') {
+      const sourceSchedule2 = sourceSchedules.find(s => s['\uad50\uc2dc'] === selectedPeriod);
+      if (!sourceSchedule2) return [];
+      const sCourseName = courses.find(c => c['\uac15\uc88c\ucf54\ub4dc'] === sourceSchedule2['\uac15\uc88c\ucf54\ub4dc'])?.['\uacfc\ubaa9\uba85'] || sourceSchedule2['\uac15\uc88c\ucf54\ub4dc'];
+      return [{ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule2['\uac15\uc88c\ucf54\ub4dc'], courseName: sCourseName, teacherName: '(\uc5c6\uc74c)', status: '\uc790\uc2b5 \uc804\ud658' }];
+    }
     const sourceCourseInfo = courses.find(c => c['강좌코드'] === sourceSchedule['강좌코드']);
     const sourceTeacherObj = teachers.find(t => t['교사명'] === sourceTeacher);
     const sourceDept = sourceTeacherObj?.['교과'] || '';
@@ -229,8 +257,8 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
     const baseDate = new Date(selectedDate);
     const searchDateStrings: string[] = [];
     
-    // 교체와 통합은 지정된 탐색 범위를 사용
-    const actualRange = (actionType === 'exchange' || actionType === 'merge') ? searchRange : 0;
+    // 교체, 보강은 지정된 탐색 범위를 사용 (통합은 항상 당일만)
+    const actualRange = (actionType === 'exchange' || actionType === 'realMakeup') ? searchRange : 0;
     
     if (actualRange === 0) {
         searchDateStrings.push(selectedDate);
@@ -259,6 +287,62 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
     searchDateStrings.forEach(sDate => {
         const sDayOfWeek = getDayString(sDate);
         const baseSchedulesForTargetDay = baseSchedules.filter(s => s['요일'] === sDayOfWeek);
+
+        if (actionType === 'realMakeup') {
+            if (!sourceClassInfo) return;
+            const periods = ['1', '2', '3', '4', '5', '6', '7'];
+            periods.forEach(p => {
+                if (amIBusyAt(sDate, p)) return;
+
+                // 월7(자율) / 금7(클럽) — 전교생 특수 과목이 배정된 시간은 보강 불가
+                const hasSpecialCourse = baseSchedulesForTargetDay.some(
+                    s => String(s['교시']) === String(p) &&
+                         (s['강좌코드'] === '자율(전체)' || s['강좌코드'] === '클럽(전체)')
+                );
+                if (hasSpecialCourse) return;
+
+                const classSchs = baseSchedulesForTargetDay.filter(s => String(s['교시']) === String(p) && extractClassInfo(s['강좌코드']) === sourceClassInfo);
+                const hasClass = classSchs.length > 0;
+                let targetTeacherName = '';
+                let targetCourseCode = '';
+                let isSelfStudy = false;
+
+                if (hasClass) {
+                    targetCourseCode = classSchs[0]['강좌코드'];
+                    const tCourseInfo = courses.find(c => c['강좌코드'] === targetCourseCode);
+                    targetTeacherName = tCourseInfo ? tCourseInfo['담당교사'] : '';
+
+                    const daily = dailySchedules?.find(d => d['날짜'] === sDate && String(d['교시']) === String(p) && d['강좌코드'] === targetCourseCode);
+                    if (daily && daily['상태'] === '자습') {
+                        isSelfStudy = true;
+                    }
+                }
+
+                if (realMakeupType === 'selfStudyTime') {
+                    if (!hasClass || isSelfStudy) {
+                        targets.push({
+                            date: sDate,
+                            period: p,
+                            courseCode: targetCourseCode || sourceSchedule['강좌코드'],
+                            courseName: !hasClass ? '해당 학급 공강' : '자습 설정됨',
+                            teacherName: targetTeacherName || '비어있음',
+                            status: '보강 가능 (자습/공강)'
+                        });
+                    }
+                } else if (realMakeupType === 'classTime') {
+                    if (hasClass && !isSelfStudy && targetTeacherName !== sourceTeacher) {
+                        targets.push({
+                            date: sDate,
+                            period: p,
+                            courseCode: targetCourseCode,
+                            courseName: courses.find(c => c['강좌코드'] === targetCourseCode)?.['과목명'] || targetCourseCode.split(' ')[0],
+                            teacherName: targetTeacherName,
+                            status: '보강 가능 (타교사 수업)'
+                        });
+                    }
+                }
+            });
+        }
 
         teachers.forEach(target => {
            if (target['교사명'] === sourceTeacher) return;
@@ -297,37 +381,50 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                const isTargetBusyAtSourcePeriod = targetSchedulesOnDate.some(s => String(s['교시']) === String(selectedPeriod));
                if (isTargetBusyAtSourcePeriod) return; 
                if (makeupType === 'same' && target['교과'] === sourceDept) {
-                   targets.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], courseName: sourceCourseInfo?.['과목명']||'', teacherName: target['교사명'], status: '동교과 보강 가능' });
+                   targets.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], courseName: sourceCourseInfo?.['과목명']||'', teacherName: target['교사명'], status: '동교과 대강 가능' });
                } else if (makeupType === 'diff' && target['교과'] !== sourceDept) {
-                   targets.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], courseName: sourceCourseInfo?.['과목명']||'', teacherName: target['교사명'], status: '타교과 보강 가능' });
+                   targets.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], courseName: sourceCourseInfo?.['과목명']||'', teacherName: target['교사명'], status: '타교과 대강 가능' });
                }
            }
-           else if (actionType === 'selfStudy') {
-               const isTargetBusyAtSourcePeriod = targetSchedulesOnDate.some(s => String(s['교시']) === String(selectedPeriod));
-               if (!isTargetBusyAtSourcePeriod) {
-                   targets.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], courseName: '자습', teacherName: target['교사명'], status: '자습 감독 가능' });
-               }
-           }
+            else if (actionType === 'selfStudy') {
+
+                // uc218uc5c5 uc790uc2b5: ub300uc0c1 uc120uc0ddub2d8 uc5c6uc774 ud574ub2f9 uc218uc5c5uc744 uc790uc2b5uc73cub85c uc804ud658 (ub300uc0c1 uc120uc0ddub2d8 = uc5c6uc74c)
+
+                // uc774 ub85cuc9c1uc740 teachers.forEach ub8e8ud504 c14uae65 ucc98ub9acud558ubbc0ub85c uc5ecuae30uc11c ubc14ub85c return
+
+                return;
+
+            }
            else if (actionType === 'merge') {
                if (!sourceClassInfo) return;
-               
-               // 1. "해당 시간(selectedPeriod)에 수업을 하고 있는 선생님"
+
+               // 해당 날짜/교시에 대상 교사가 수업 중인지 확인
                const targetCourseAtSourcePeriod = targetSchedulesOnDate.find(s => String(s['교시']) === String(selectedPeriod));
-               
-               if (targetCourseAtSourcePeriod) {
-                   // 2. "해당 학급(sourceClassInfo)에 수업이 예정된 선생님" (이번 학기 전체 담당 강좌 중 확인)
-                   const teachesSourceClassInfo = targetCourses.some(code => extractClassInfo(code) === sourceClassInfo);
-                   
-                   if (teachesSourceClassInfo) {
-                       const targetCourseInfo = courses.find(c => c['강좌코드'] === targetCourseAtSourcePeriod['강좌코드']);
-                       const cName = targetCourseInfo ? targetCourseInfo['과목명'] : targetCourseAtSourcePeriod['강좌코드'].split(' ')[0];
-                       
-                       if (makeupType === 'same' && target['교과'] === sourceDept) {
-                           targets.push({ date: sDate, period: selectedPeriod, courseCode: targetCourseAtSourcePeriod['강좌코드'], courseName: cName, teacherName: target['교사명'], status: '동교과 통합 합반' });
-                       } else if (makeupType === 'diff' && target['교과'] !== sourceDept) {
-                           targets.push({ date: sDate, period: selectedPeriod, courseCode: targetCourseAtSourcePeriod['강좌코드'], courseName: cName, teacherName: target['교사명'], status: '타교과 통합 합반' });
-                       }
-                   }
+               if (!targetCourseAtSourcePeriod) return;
+
+               // 해당 교시에 가르치는 학급이 원본 학급(sourceClassInfo)이면 제외
+               const targetCourseClassInfo = extractClassInfo(targetCourseAtSourcePeriod['강좌코드']);
+               if (targetCourseClassInfo === sourceClassInfo) return;
+
+               // 대상 교사가 sourceClassInfo 학급을 담당하는 과목이 있어야 함 → 과목명 추출
+               const sourceClassCourse = courses.find(
+                   c => c['담당교사'] === target['교사명'] && extractClassInfo(c['강좌코드']) === sourceClassInfo
+               );
+               if (!sourceClassCourse) return;
+
+               // 해당 교시의 과목명이 sourceClassInfo에서 가르치는 과목명과 일치해야 합반 가능
+               const targetPeriodCourseInfo = courses.find(c => c['강좌코드'] === targetCourseAtSourcePeriod['강좌코드']);
+               if (!targetPeriodCourseInfo) return;
+
+               if (sourceClassCourse['과목명'] === targetPeriodCourseInfo['과목명']) {
+                   targets.push({
+                       date: sDate,
+                       period: selectedPeriod,
+                       courseCode: targetCourseAtSourcePeriod['강좌코드'],
+                       courseName: `${targetPeriodCourseInfo['과목명']} (${targetCourseClassInfo}반)`,
+                       teacherName: target['교사명'],
+                       status: '합반 통합 가능'
+                   });
                }
            }
         });
@@ -370,11 +467,22 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
          payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: target.courseCode, sourceTeacher: '', targetTeacher: target.teacherName, status: '이동(IN)', reason: txID });
 
      } else if (actionType === 'makeup') {
-         payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '보강', reason });
+         payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '대강', reason });
      } else if (actionType === 'selfStudy') {
-         payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '자습', reason });
+          payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['\uac15\uc88c\ucf54\ub4dc'], sourceTeacher, targetTeacher: '', status: '\uc790\uc2b5', reason });
      } else if (actionType === 'merge') {
          payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '통합', reason });
+     } else if (actionType === 'realMakeup') {
+         const txID = `[보강-${new Date().getTime().toString().slice(-6)}] ${reason}`;
+         // 1. 원래 내 수업 시간 비우기 (결손 처리)
+         payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: '', status: '이동(OUT)', reason: txID });
+         // 2. 타겟 시간에 내 수업 추가
+         payloads.push({ date: target.date, period: target.period, courseCode: sourceSchedule['강좌코드'], sourceTeacher: '', targetTeacher: sourceTeacher, status: '이동(IN)', reason: txID });
+         
+         // 3. 타겟 선생님이 있으면 타겟 선생님의 수업을 타겟 시간에서 뺀다
+         if (target.teacherName && target.teacherName !== '비어있음') {
+             payloads.push({ date: target.date, period: target.period, courseCode: target.courseCode, sourceTeacher: target.teacherName, targetTeacher: '', status: '이동(OUT)', reason: txID });
+         }
      }
 
      try {
@@ -546,17 +654,26 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
           <select value={actionType} onChange={(e) => setActionType(e.target.value)}
                   style={{ background:'rgba(255,255,255,0.1)', color:'white', border:'1px solid rgba(255,255,255,0.2)', padding:'10px 12px', borderRadius:'12px', fontSize:'0.9rem', outline:'none', textAlign:'center', cursor:'pointer' }}>
             <option value="exchange" style={{color:'black'}}>수업 교체</option>
-            <option value="makeup" style={{color:'black'}}>수업 보강</option>
+            <option value="makeup" style={{color:'black'}}>수업 대강</option>
+            <option value="realMakeup" style={{color:'black'}}>수업 보강</option>
             <option value="selfStudy" style={{color:'black'}}>수업 자습</option>
             <option value="merge" style={{color:'black'}}>클래스 통합</option>
           </select>
         </div>
 
-        {/* 보강 및 통합일 경우 하위 필터 토글 */}
-        {(actionType === 'makeup' || actionType === 'merge') && (
+        {/* 대강일 경우 하위 필터 토글 */}
+        {actionType === 'makeup' && (
           <div style={{ background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', display: 'flex', width: '100%', border: '1px solid rgba(255,255,255,0.05)' }}>
              <div onClick={() => setMakeupType('same')} style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: '0.8rem', background: makeupType === 'same' ? 'var(--accent)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition-spring)' }}>동교과</div>
              <div onClick={() => setMakeupType('diff')} style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: '0.8rem', background: makeupType === 'diff' ? 'rgba(255,255,255,0.1)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition-spring)' }}>타교과</div>
+          </div>
+        )}
+
+        {/* 보강일 경우 하위 필터 토글 */}
+        {actionType === 'realMakeup' && (
+          <div style={{ background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '12px', display: 'flex', width: '100%', border: '1px solid rgba(255,255,255,0.05)' }}>
+             <div onClick={() => setRealMakeupType('selfStudyTime')} style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: '0.8rem', background: realMakeupType === 'selfStudyTime' ? 'var(--accent)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition-spring)' }}>자습 시간</div>
+             <div onClick={() => setRealMakeupType('classTime')} style={{ flex: 1, textAlign: 'center', padding: '6px 0', fontSize: '0.8rem', background: realMakeupType === 'classTime' ? 'rgba(255,255,255,0.1)' : 'transparent', borderRadius: '8px', cursor: 'pointer', transition: 'var(--transition-spring)' }}>수업 시간</div>
           </div>
         )}
 
@@ -570,14 +687,14 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>추천 가능 목록 (TARGET)</span>
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>탐색 범위:</span>
-               <select value={(actionType === 'exchange' || actionType === 'merge') ? searchRange : 0} onChange={(e) => setSearchRange(Number(e.target.value))} 
-                       disabled={!(actionType === 'exchange' || actionType === 'merge')}
-                       style={{ 
-                         background: !(actionType === 'exchange' || actionType === 'merge') ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.05)', 
-                         color: !(actionType === 'exchange' || actionType === 'merge') ? 'rgba(255,255,255,0.3)' : 'white', 
-                         border:'1px solid rgba(255,255,255,0.1)', 
-                         padding:'4px 8px', borderRadius:'6px', outline:'none', fontSize:'0.8rem', 
-                         cursor: !(actionType === 'exchange' || actionType === 'merge') ? 'not-allowed' : 'pointer' 
+               <select value={(actionType === 'exchange' || actionType === 'realMakeup') ? searchRange : 0} onChange={(e) => setSearchRange(Number(e.target.value))}
+                       disabled={!(actionType === 'exchange' || actionType === 'realMakeup')}
+                       style={{
+                         background: !(actionType === 'exchange' || actionType === 'realMakeup') ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.05)',
+                         color: !(actionType === 'exchange' || actionType === 'realMakeup') ? 'rgba(255,255,255,0.3)' : 'white',
+                         border:'1px solid rgba(255,255,255,0.1)',
+                         padding:'4px 8px', borderRadius:'6px', outline:'none', fontSize:'0.8rem',
+                         cursor: !(actionType === 'exchange' || actionType === 'realMakeup') ? 'not-allowed' : 'pointer'
                        }}>
                  <option value={0} style={{color:'black'}}>당일만</option>
                  <option value={7} style={{color:'black'}}>±1주일 (14일)</option>
@@ -594,26 +711,35 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
             ) : (
                 <div style={{ display: 'grid', gap: '12px' }}>
                    {targetList.length > 0 ? targetList.map((target, idx) => (
-                      <div key={`tgt-${idx}`} style={{ padding: '20px', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                           <div style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
-                             {target.teacherName} <span style={{fontSize:'0.9rem', color:'var(--text-secondary)', fontWeight: 400}}>님</span>
-                           </div>
-                           {/* 중요: 사용자가 명시한 날짜, 교시, 강좌코드, 상태 필수 표출 */}
-                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                             <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px'}}>{target.date}</span>
-                             <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px'}}>{target.period}교시</span>
-                             <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px', color: '#ffb86c'}}>{target.courseCode.split(' ')[0]}</span>
-                             <span style={{background:'rgba(74, 144, 226, 0.1)', color:'#8be9fd', padding:'2px 8px', borderRadius:'4px'}}>{target.status}</span>
-                           </div>
-                        </div>
-                        <button onClick={() => handleApplyClick(target)} 
-                                style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'white', color: 'black', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', flexShrink: 0, fontWeight: 700, fontSize: '0.85rem', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s', lineHeight: '1.2' }}
-                                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-                           <span>선택</span><span>적용</span>
-                        </button>
-                      </div>
+                       <div key={`tgt-${idx}`} style={{ padding: '20px', background: target.status === '자습 전환' ? 'rgba(139,233,253,0.08)' : 'rgba(255,255,255,0.03)', borderRadius: '16px', border: target.status === '자습 전환' ? '1px solid rgba(139,233,253,0.3)' : '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                         <div>
+                            <div style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '6px' }}>
+                              {target.status === '자습 전환' ? (
+                                <span style={{ color: '#8be9fd' }}>📖 수업 자습 전환</span>
+                              ) : (
+                                <>{target.teacherName} <span style={{fontSize:'0.9rem', color:'var(--text-secondary)', fontWeight: 400}}>님</span></>
+                              )}
+                            </div>
+                            {/* 중요: 사용자가 명시한 날짜, 교시, 강좌코드, 상태 필수 표출 */}
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                              <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px'}}>{target.date}</span>
+                              <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px'}}>{target.period}교시</span>
+                              <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px', color: '#ffb86c'}}>{target.courseName}</span>
+                              <span style={{background: target.status === '자습 전환' ? 'rgba(139,233,253,0.15)' : 'rgba(74, 144, 226, 0.1)', color: target.status === '자습 전환' ? '#8be9fd' : '#8be9fd', padding:'2px 8px', borderRadius:'4px'}}>{target.status}</span>
+                            </div>
+                            {target.status === '자습 전환' && (
+                              <div style={{ marginTop: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                원본 선생님의 수업 없이 해당 학급이 자습을 진행합니다.
+                              </div>
+                            )}
+                         </div>
+                         <button onClick={() => handleApplyClick(target)} 
+                                 style={{ width: '60px', height: '60px', borderRadius: '50%', background: target.status === '자습 전환' ? '#8be9fd' : 'white', color: 'black', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', flexShrink: 0, fontWeight: 700, fontSize: '0.85rem', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s', lineHeight: '1.2' }}
+                                 onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                                 onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                            <span>선택</span><span>적용</span>
+                         </button>
+                       </div>
                    )) : (
                       <div style={{ padding: '30px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.05)' }}>
                          <p style={{ color: 'var(--text-secondary)' }}>이 조건에 맞는 선생님이 없습니다.</p>
@@ -627,19 +753,23 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
       {/* 미리보기 및 사유 입력 모달 */}
       {previewTarget && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', animation: 'fadeIn 0.2s' }} 
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '40px', animation: 'fadeIn 0.2s' }}
              onClick={() => setPreviewTarget(null)}>
-           <div style={{ background: 'var(--glass-outer)', border: '1px solid var(--glass-border)', borderRadius: '24px', width: '100%', maxWidth: '1200px', maxHeight: '90vh', overflowY: 'auto', padding: '40px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s', display: 'flex', flexDirection: 'column' }} 
+           <div style={{ background: 'var(--glass-outer)', border: '1px solid var(--glass-border)', borderRadius: '24px', width: '100%', maxWidth: '1200px', height: 'calc(100vh - 80px)', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s', display: 'flex', flexDirection: 'column' }}
                 onClick={e => e.stopPropagation()}>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                 <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 600 }}>주간 시간표 변경 시뮬레이션</h2>
-                 <button onClick={() => setPreviewTarget(null)} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600, transition: 'var(--transition-spring)' }}>취소</button>
-              </div>
-              
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>선택하신 알고리즘(<b>{previewTarget.status}</b>) 적용 시 변경되는 두 선생님의 주간 시간표입니다. (블록으로 표시된 부분이 변경 사항입니다.)</p>
 
-              <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '20px' }}>
+              {/* 고정 헤더 */}
+              <div style={{ flexShrink: 0, padding: '40px 40px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                   <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 600 }}>주간 시간표 변경 시뮬레이션</h2>
+                   <button onClick={() => setPreviewTarget(null)} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600, transition: 'var(--transition-spring)' }}>취소</button>
+                </div>
+                <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>선택하신 알고리즘(<b>{previewTarget.status}</b>) 적용 시 변경되는 두 선생님의 주간 시간표입니다. (블록으로 표시된 부분이 변경 사항입니다.)</p>
+              </div>
+
+              {/* 스크롤 가능한 시간표 영역 */}
+              <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto', padding: '0 40px 20px' }}>
+              <div style={{ display: 'flex', gap: '20px', minWidth: 'fit-content' }}>
                   {/* 원본 교사 시간표 렌더링 */}
                   {(() => {
                       const dates = getWeekDates(selectedDate);
@@ -790,21 +920,24 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                       );
                   })()}
               </div>
+              </div>{/* 스크롤 영역 끝 */}
 
-              {/* 사유 입력 및 확인 버튼 */}
-              <div style={{ marginTop: '20px', display: 'flex', alignItems: 'flex-end', gap: '16px', background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '16px' }}>
-                 <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>적용 사유 (예: 연가, 결보강 등)</label>
-                    <input type="text" value={previewReason} onChange={(e) => setPreviewReason(e.target.value)}
-                           style={{ width: '100%', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 16px', borderRadius: '12px', fontSize: '1rem', outline: 'none' }} 
-                           placeholder="사유를 입력하세요" autoFocus />
-                 </div>
-                 <button onClick={handleConfirmApply}
-                         style={{ background: 'white', color: 'black', border: 'none', padding: '12px 32px', borderRadius: '12px', fontWeight: 600, fontSize: '1.05rem', cursor: 'pointer', transition: 'transform 0.2s' }}
-                         onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                         onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-                    변경 시간표 확정 적용하기
-                 </button>
+              {/* 고정 푸터: 사유 입력 및 확인 버튼 */}
+              <div style={{ flexShrink: 0, padding: '0 40px 40px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '16px' }}>
+                   <div style={{ width: '100%' }}>
+                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>적용 사유 (예: 연가, 결보강 등)</label>
+                      <input type="text" value={previewReason} onChange={(e) => setPreviewReason(e.target.value)}
+                             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '16px 20px', borderRadius: '12px', fontSize: '1.1rem', outline: 'none' }}
+                             placeholder="사유를 입력하세요" autoFocus />
+                   </div>
+                   <button onClick={handleConfirmApply}
+                           style={{ width: '100%', background: 'white', color: 'black', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', transition: 'transform 0.2s' }}
+                           onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                           onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                      변경 시간표 확정 적용하기
+                   </button>
+                </div>
               </div>
 
            </div>

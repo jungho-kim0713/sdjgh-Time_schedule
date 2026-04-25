@@ -2,10 +2,21 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
+const ROLES = ['관리자', '업무담당자', '교사', '학생'];
+
+const getRoleBadgeStyle = (role: string): React.CSSProperties => {
+  if (role === '관리자') return { background: 'rgba(74,144,226,0.2)', color: '#4a90e2' };
+  if (role === '업무담당자') return { background: 'rgba(255,184,108,0.2)', color: '#ffb86c' };
+  if (role === '교사') return { background: 'rgba(74,226,144,0.2)', color: '#4ae290' };
+  if (role === '학생') return { background: 'rgba(189,147,249,0.2)', color: '#bd93f9' };
+  return { background: 'rgba(255,255,255,0.1)', color: 'white' };
+};
+
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
 
   const fetchData = () => {
     setLoading(true);
@@ -29,20 +40,33 @@ const AdminDashboard: React.FC = () => {
   const handleUpdateUser = async (email: string, role: string, status: string) => {
     if (!window.confirm(`${email} 사용자의 상태를 업데이트 하시겠습니까?`)) return;
     try {
-      const res = await axios.post('/api/users/update', {
-        email,
-        role,
-        status
-      });
+      const res = await axios.post('/api/users/update', { email, role, status });
       if (res.data.success) {
         alert('업데이트 성공');
         fetchData();
       } else {
         alert('오류: ' + res.data.message);
       }
-    } catch (error) {
-      console.error(error);
-      alert('업데이트 중 오류가 발생했습니다.');
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || '알 수 없는 오류';
+      const status = error?.response?.status || '';
+      alert(`오류 ${status}: ${msg}`);
+    }
+  };
+
+  const handleRoleChange = async (email: string, newRole: string, currentStatus: string) => {
+    if (!window.confirm(`${email} 의 권한을 '${newRole}'(으)로 변경하시겠습니까?`)) return;
+    try {
+      const res = await axios.post('/api/users/update', { email, role: newRole, status: currentStatus });
+      if (res.data.success) {
+        fetchData();
+      } else {
+        alert('오류: ' + res.data.message);
+      }
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || error?.message || '알 수 없는 오류';
+      const status = error?.response?.status || '';
+      alert(`오류 ${status}: ${msg}`);
     }
   };
 
@@ -57,11 +81,11 @@ const AdminDashboard: React.FC = () => {
             관리자 대시보드
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '10px' }}>
-            가입한 교사 계정의 승인 상태 및 권한을 관리합니다.
+            가입한 계정의 승인 상태 및 권한을 관리합니다.
           </p>
         </div>
-        <button 
-          onClick={() => navigate('/dashboard')} 
+        <button
+          onClick={() => navigate('/dashboard')}
           style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px 24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', transition: 'var(--transition-spring)', fontWeight: 600 }}
         >
           뒤로 가기
@@ -91,28 +115,49 @@ const AdminDashboard: React.FC = () => {
                         const email = u['구글 계정'] || '-';
                         const name = u['이름'] || '-';
                         const tId = u['교사ID'] || '-';
-                        const role = u['권한'] || 'User';
+                        const role = u['권한'] || '학생';
                         const status = u['상태'] || 'Pending';
-                        
+
                         return (
                            <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                               <td style={{ padding: '16px' }}>{email}</td>
                               <td style={{ padding: '16px' }}>{name}</td>
                               <td style={{ padding: '16px', color: 'var(--text-secondary)' }}>{tId}</td>
                               <td style={{ padding: '16px' }}>
-                                 <span style={{ padding: '6px 12px', background: role === 'Admin' ? 'rgba(74, 144, 226, 0.2)' : 'rgba(255,255,255,0.1)', color: role === 'Admin' ? '#4a90e2' : 'white', borderRadius: '8px', fontSize: '0.85rem' }}>
-                                    {role}
-                                 </span>
+                                 {status === 'Active' ? (
+                                   <select
+                                     value={role}
+                                     onChange={(e) => handleRoleChange(email, e.target.value, status)}
+                                     style={{
+                                       padding: '6px 12px',
+                                       borderRadius: '8px',
+                                       fontSize: '0.85rem',
+                                       border: '1px solid rgba(255,255,255,0.15)',
+                                       cursor: 'pointer',
+                                       fontFamily: 'Pretendard',
+                                       ...getRoleBadgeStyle(role),
+                                       background: getRoleBadgeStyle(role).background,
+                                     }}
+                                   >
+                                     {ROLES.map(r => (
+                                       <option key={r} value={r} style={{ color: 'black', background: 'white' }}>{r}</option>
+                                     ))}
+                                   </select>
+                                 ) : (
+                                   <span style={{ padding: '6px 12px', borderRadius: '8px', fontSize: '0.85rem', background: 'rgba(255,255,255,0.08)', color: 'var(--text-secondary)' }}>
+                                     {role}
+                                   </span>
+                                 )}
                               </td>
                               <td style={{ padding: '16px' }}>
                                  <span style={{ padding: '6px 12px', background: status === 'Active' ? 'rgba(74, 226, 144, 0.2)' : 'rgba(255, 184, 108, 0.2)', color: status === 'Active' ? '#4ae290' : '#ffb86c', borderRadius: '8px', fontSize: '0.85rem' }}>
-                                    {status}
+                                    {status === 'Active' ? '활성' : '대기'}
                                  </span>
                               </td>
                               <td style={{ padding: '16px', textAlign: 'center' }}>
                                  {status === 'Pending' ? (
-                                    <button onClick={() => handleUpdateUser(email, 'User', 'Active')} style={{ padding: '8px 16px', background: '#4ae290', color: 'black', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
-                                       승인하기
+                                    <button onClick={() => handleUpdateUser(email, '학생', 'Active')} style={{ padding: '8px 16px', background: '#4ae290', color: 'black', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>
+                                       승인
                                     </button>
                                  ) : (
                                     <button disabled style={{ padding: '8px 16px', background: 'rgba(255,255,255,0.1)', color: 'var(--text-secondary)', border: 'none', borderRadius: '8px', cursor: 'not-allowed' }}>
