@@ -23,7 +23,9 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   
   // 조회용 상태
+  const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('all');
+  const [userRole, setUserRole] = useState<string>('');
   
   // 타겟 날짜 (주 단위 필터링 용도)
   const [targetDate, setTargetDate] = useState<string>(() => {
@@ -32,6 +34,16 @@ const Dashboard: React.FC = () => {
   
   // 모달 제어용
   const [selectedCell, setSelectedCell] = useState<any>(null);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserRole(user.role);
+      } catch (e) {}
+    }
+  }, []);
 
   const fetchData = () => {
     axios.get('/api/data')
@@ -65,6 +77,33 @@ const Dashboard: React.FC = () => {
         return nd.toISOString().split('T')[0];
      });
   }, [targetDate]);
+
+  const subjects = useMemo(() => {
+    const subs = new Set<string>();
+    teachers.forEach(t => {
+      if (t['교과']) subs.add(t['교과']);
+    });
+    return Array.from(subs).sort();
+  }, [teachers]);
+
+  const filteredTeachers = useMemo(() => {
+    let list = teachers;
+    if (selectedSubject !== 'all') {
+      list = teachers.filter(t => t['교과'] === selectedSubject);
+    }
+    
+    return [...list].sort((a, b) => (a['교사명'] || '').localeCompare(b['교사명'] || ''));
+  }, [teachers, selectedSubject]);
+
+  useEffect(() => {
+    // 교과 선택이 변경되었을 때 선택된 교사가 필터링된 목록에 없으면 '전체'로 초기화
+    if (selectedTeacherId !== 'all') {
+      const isTeacherInList = filteredTeachers.some(t => t['교사명'] === selectedTeacherId);
+      if (!isTeacherInList) {
+        setSelectedTeacherId('all');
+      }
+    }
+  }, [selectedSubject, filteredTeachers, selectedTeacherId]);
 
   // 특정 기준일 & 교시에 대한 최종 시간표(Override 포함) 계산
   const getSchedulesForCell = (dateStr: string, dayStr: string, period: string) => {
@@ -236,7 +275,9 @@ const Dashboard: React.FC = () => {
       }}>
         <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 조회</button>
         <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 수정</button>
-        <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>Admin</button>
+        {userRole === 'Admin' && (
+          <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>관리자</button>
+        )}
       </nav>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '60px 40px' }} className="animate-fade-in">
@@ -253,28 +294,44 @@ const Dashboard: React.FC = () => {
           
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             {activeTab === 'view' && (
-               <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
+               <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px' }}>기준일(주간)</label>
                  <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
-                        style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer' }} />
+                        style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', colorScheme: 'dark' }} />
                </div>
             )}
             
             {activeTab === 'view' && !loading && teachers.length > 0 && (
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '10px 20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
-                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px' }}>교사 선택 필터</label>
-                <select 
-                  value={selectedTeacherId} 
-                  onChange={(e) => setSelectedTeacherId(e.target.value)}
-                  style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer' }}
-                >
-                  <option style={{color:'black'}} value="all">전체 (모든 강좌)</option>
-                  {teachers.map(t => (
-                    <option style={{color:'black'}} key={t['교사ID'] || t['교사명']} value={t['교사명']}>
-                      {t['교사명']} 선생님
-                    </option>
-                  ))}
-                </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px', minWidth: '60px' }}>교과 선택</label>
+                  <select 
+                    value={selectedSubject} 
+                    onChange={(e) => setSelectedSubject(e.target.value)}
+                    style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', width: '100%' }}
+                  >
+                    <option style={{color:'black'}} value="all">전체</option>
+                    {subjects.map(s => (
+                      <option style={{color:'black'}} key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px', minWidth: '60px' }}>강사 선택</label>
+                  <select 
+                    value={selectedTeacherId} 
+                    onChange={(e) => setSelectedTeacherId(e.target.value)}
+                    style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', width: '100%' }}
+                  >
+                    <option style={{color:'black'}} value="all">전체 (모든 강좌)</option>
+                    {filteredTeachers.map(t => (
+                      <option style={{color:'black'}} key={t['교사ID'] || t['교사명']} value={t['교사명']}>
+                        {t['교사명']} 선생님
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
           </div>

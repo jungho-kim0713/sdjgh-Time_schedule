@@ -33,11 +33,95 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
   // 우측 필터 범위 State
   const [searchRange, setSearchRange] = useState<number>(7); // 탐색 허용 일수 (기본 7일)
 
+  // 모달 State 추가
+  const [previewTarget, setPreviewTarget] = useState<any>(null);
+  const [previewReason, setPreviewReason] = useState<string>('');
+
+  // 주간 날짜 배열 생성 헬퍼
+  const getWeekDates = (dateStr: string) => {
+     if(!dateStr) return [];
+     const d = new Date(dateStr);
+     const day = d.getDay() || 7;
+     d.setDate(d.getDate() - day + 1);
+     return ['월', '화', '수', '목', '금'].map((_, idx) => {
+        const nd = new Date(d);
+        nd.setDate(d.getDate() + idx);
+        return nd.toISOString().split('T')[0];
+     });
+  };
+
   // 선택된 날짜의 요일 구하기('월', '화' 등)
   const getDayString = (dateStr: string) => {
     if (!dateStr) return '';
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     return days[new Date(dateStr).getDay()];
+  };
+
+  // 특정 교사의 해당 셀의 시뮬레이션 된 시간표 조회
+  const getTeacherCell = (teacherName: string, dateStr: string, dayStr: string, period: string, isPreview: boolean = false, previewTgt: any = null) => {
+     const myCourses = courses.filter(c => c['담당교사'] === teacherName).map(c => c['강좌코드']);
+     let baseList = baseSchedules.filter(s => s['요일'] === dayStr && String(s['교시']) === String(period) && myCourses.includes(s['강좌코드']));
+     
+     // 1. 기존 변경사항(dailySchedules) 적용
+     const changes = dailySchedules?.filter(d => d['날짜'] === dateStr && String(d['교시']) === String(period)) || [];
+     const overrideMap: Record<string, any> = {};
+     changes.forEach(change => {
+         const key = change['강좌코드'];
+         if (change['상태'] === '취소' || change['상태'] === '정상') {
+             delete overrideMap[key];
+         } else {
+             overrideMap[key] = change;
+         }
+     });
+
+     Object.values(overrideMap).forEach(change => {
+         const involvesTeacher = (change['원래교사'] === teacherName) || (change['변경교사'] === teacherName);
+         if (!involvesTeacher && !myCourses.includes(change['강좌코드'])) return;
+
+         if (change['상태'] === '이동(OUT)' || (change['원래교사'] === teacherName && change['변경교사'] !== teacherName)) {
+             baseList = baseList.filter(b => b['강좌코드'] !== change['강좌코드']);
+         } else if (change['상태'] === '이동(IN)' || (change['변경교사'] === teacherName && change['원래교사'] !== teacherName)) {
+             const existingIdx = baseList.findIndex(b => b['강좌코드'] === change['강좌코드']);
+             const overrideItem = { ...change, isOverride: true, status: change['상태'] };
+             if (existingIdx >= 0) baseList[existingIdx] = overrideItem;
+             else baseList.push(overrideItem);
+         }
+     });
+
+     // 2. 가상 적용 (Preview)
+     if (isPreview && previewTgt) {
+         if (teacherName === sourceTeacher) {
+             if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
+                 baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
+             }
+             if (actionType === 'exchange' && dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
+                 const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
+                 if (sInfo) {
+                     baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: '이동(IN)', _previewAdded: true });
+                 }
+             }
+         }
+         if (teacherName === previewTgt.teacherName) {
+             if (actionType === 'exchange') {
+                 if (dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
+                     baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
+                 }
+                 if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
+                     baseList.push({ 강좌코드: previewTgt.courseCode, isOverride: true, status: '이동(IN)', _previewAdded: true });
+                 }
+             } else {
+                 if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
+                     const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
+                     if (sInfo) {
+                         const statusText = actionType === 'makeup' ? '보강' : actionType === 'selfStudy' ? '자습' : '통합';
+                         baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: statusText, _previewAdded: true });
+                     }
+                 }
+             }
+         }
+     }
+
+     return { list: baseList };
   };
 
   // 좌측 선생님의 해당 날짜 스케줄 뽑아오기
@@ -254,9 +338,19 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
   const targetList = getTargetList();
 
-  const handleApply = async (target: any) => {
-     const reason = window.prompt(`선택하신 알고리즘(${target.status})으로 시간표를 수정합니다.\n\n적용 사유를 간단히 적어주세요 (예: 연가, 결보강 등):`);
-     if (reason === null) return; // 취소
+  const handleApplyClick = (target: any) => {
+      setPreviewTarget(target);
+      setPreviewReason('');
+  };
+
+  const handleConfirmApply = async () => {
+     if (!previewReason.trim()) {
+         alert('적용 사유를 입력해주세요.');
+         return;
+     }
+     
+     const target = previewTarget;
+     const reason = previewReason;
      
      const payloads = [];
      const sourceSchedule = sourceSchedules.find(s => s['교시'] === selectedPeriod);
@@ -292,6 +386,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
          const data = await response.json();
          if (data.success) {
             alert('구글 스프레드시트에 성공적으로 저장되었습니다!');
+            setPreviewTarget(null);
             if (onUpdate) onUpdate(); // 새로고침 없이 최신 데이터 패치
          } else {
             alert('저장에 실패했습니다: ' + (data.message || '알 수 없는 오류'));
@@ -366,7 +461,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
               <div>
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom:'6px', display:'block' }}>날짜 (Date)</label>
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
-                  style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '12px', outline: 'none', marginBottom: 0 }}
+                  style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '12px', outline: 'none', marginBottom: 0, colorScheme: 'dark' }}
                 />
               </div>
 
@@ -512,7 +607,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                              <span style={{background:'rgba(74, 144, 226, 0.1)', color:'#8be9fd', padding:'2px 8px', borderRadius:'4px'}}>{target.status}</span>
                            </div>
                         </div>
-                        <button onClick={() => handleApply(target)} 
+                        <button onClick={() => handleApplyClick(target)} 
                                 style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'white', color: 'black', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', flexShrink: 0, fontWeight: 700, fontSize: '0.85rem', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', transition: 'transform 0.2s', lineHeight: '1.2' }}
                                 onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                                 onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
@@ -527,9 +622,194 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                 </div>
             )}
           </div>
-
         </div>
       </div>
+
+      {/* 미리보기 및 사유 입력 모달 */}
+      {previewTarget && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', animation: 'fadeIn 0.2s' }} 
+             onClick={() => setPreviewTarget(null)}>
+           <div style={{ background: 'var(--glass-outer)', border: '1px solid var(--glass-border)', borderRadius: '24px', width: '100%', maxWidth: '1200px', maxHeight: '90vh', overflowY: 'auto', padding: '40px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', animation: 'slideUp 0.3s', display: 'flex', flexDirection: 'column' }} 
+                onClick={e => e.stopPropagation()}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                 <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 600 }}>주간 시간표 변경 시뮬레이션</h2>
+                 <button onClick={() => setPreviewTarget(null)} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600, transition: 'var(--transition-spring)' }}>취소</button>
+              </div>
+              
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '30px' }}>선택하신 알고리즘(<b>{previewTarget.status}</b>) 적용 시 변경되는 두 선생님의 주간 시간표입니다. (블록으로 표시된 부분이 변경 사항입니다.)</p>
+
+              <div style={{ display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '20px' }}>
+                  {/* 원본 교사 시간표 렌더링 */}
+                  {(() => {
+                      const dates = getWeekDates(selectedDate);
+                      const days = ['월', '화', '수', '목', '금'];
+                      const periods = ['1', '2', '3', '4', '5', '6', '7'];
+
+                      return (
+                         <div style={{ flex: 1, minWidth: '400px', background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '16px' }}>
+                            <h3 style={{ textAlign: 'center', marginBottom: '16px', fontSize: '1.2rem', color: '#ffb86c' }}>
+                              [원본] {sourceTeacher} 선생님
+                            </h3>
+                            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '4px' }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '40px' }}></th>
+                                  {dates.map((d, idx) => (
+                                    <th key={d} style={{ padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>
+                                      <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1rem', marginBottom: '4px' }}>{days[idx]}요일</div>
+                                      {d.slice(5)}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {periods.map(period => (
+                                  <tr key={period}>
+                                    <td style={{ padding: '8px', background: 'transparent', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                      {period}교시
+                                    </td>
+                                    {dates.map((d, idx) => {
+                                       const cellData = getTeacherCell(sourceTeacher, d, days[idx], period, true, previewTarget);
+                                       const { list } = cellData;
+                                       const hasItems = list.length > 0;
+
+                                       return (
+                                         <td key={d} style={{ 
+                                            padding: '8px 4px', 
+                                            background: hasItems ? 'rgba(74, 144, 226, 0.05)' : 'rgba(255,255,255,0.02)',
+                                            border: hasItems ? '1px solid rgba(74, 144, 226, 0.2)' : '1px solid rgba(255,255,255,0.05)',
+                                            borderRadius: '8px',
+                                            textAlign: 'center',
+                                            verticalAlign: 'middle'
+                                         }}>
+                                            {list.map((m: any, i: number) => {
+                                               const courseInfo = courses.find(c => c['강좌코드'] === m['강좌코드']);
+                                               const subjectName = courseInfo ? courseInfo['과목명'] : m['강좌코드'].split('(')[0];
+                                               const classGroup = m['강좌코드'].match(/\((.*?)\)/)?.[1] || '';
+                                               const isRmv = m._previewRemoved;
+                                               const isAdd = m._previewAdded;
+                                               return (
+                                                  <div key={i} style={{ 
+                                                      display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                                                      textDecoration: isRmv ? 'line-through' : 'none',
+                                                      opacity: isRmv ? 0.6 : 1,
+                                                      background: isRmv ? 'rgba(255, 85, 85, 0.15)' : isAdd ? 'rgba(74, 226, 144, 0.15)' : 'transparent',
+                                                      border: isRmv ? '1px dashed rgba(255, 85, 85, 0.4)' : isAdd ? '1px solid rgba(74, 226, 144, 0.4)' : 'none',
+                                                      padding: '4px', borderRadius: '6px', marginBottom: i < list.length - 1 ? '4px' : '0'
+                                                  }}>
+                                                    <span style={{ fontWeight: 600, color: isRmv ? '#ffb8b8' : isAdd ? '#a8ffb2' : 'white', fontSize: '0.9rem' }}>{subjectName}</span>
+                                                    {classGroup && <span style={{ fontSize: '0.75rem', color: isRmv ? '#ffb8b8' : isAdd ? '#a8ffb2' : '#ffb86c', marginTop: '2px' }}>{classGroup}</span>}
+                                                  </div>
+                                               )
+                                            })}
+                                            {!hasItems && <span style={{ color: 'rgba(255,255,255,0.1)' }}>-</span>}
+                                         </td>
+                                       )
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                         </div>
+                      );
+                  })()}
+
+                  {/* 타겟 교사 시간표 렌더링 */}
+                  {(() => {
+                      const dates = getWeekDates(previewTarget.date);
+                      const days = ['월', '화', '수', '목', '금'];
+                      const periods = ['1', '2', '3', '4', '5', '6', '7'];
+
+                      return (
+                         <div style={{ flex: 1, minWidth: '400px', background: 'rgba(0,0,0,0.2)', padding: '20px', borderRadius: '16px' }}>
+                            <h3 style={{ textAlign: 'center', marginBottom: '16px', fontSize: '1.2rem', color: '#a8ffb2' }}>
+                              [대상] {previewTarget.teacherName} 선생님
+                            </h3>
+                            <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '4px' }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '40px' }}></th>
+                                  {dates.map((d, idx) => (
+                                    <th key={d} style={{ padding: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'normal', color: 'var(--text-secondary)' }}>
+                                      <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1rem', marginBottom: '4px' }}>{days[idx]}요일</div>
+                                      {d.slice(5)}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {periods.map(period => (
+                                  <tr key={period}>
+                                    <td style={{ padding: '8px', background: 'transparent', textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                      {period}교시
+                                    </td>
+                                    {dates.map((d, idx) => {
+                                       const cellData = getTeacherCell(previewTarget.teacherName, d, days[idx], period, true, previewTarget);
+                                       const { list } = cellData;
+                                       const hasItems = list.length > 0;
+
+                                       return (
+                                         <td key={d} style={{ 
+                                            padding: '8px 4px', 
+                                            background: hasItems ? 'rgba(74, 144, 226, 0.05)' : 'rgba(255,255,255,0.02)',
+                                            border: hasItems ? '1px solid rgba(74, 144, 226, 0.2)' : '1px solid rgba(255,255,255,0.05)',
+                                            borderRadius: '8px',
+                                            textAlign: 'center',
+                                            verticalAlign: 'middle'
+                                         }}>
+                                            {list.map((m: any, i: number) => {
+                                               const courseInfo = courses.find(c => c['강좌코드'] === m['강좌코드']);
+                                               const subjectName = courseInfo ? courseInfo['과목명'] : m['강좌코드'].split('(')[0];
+                                               const classGroup = m['강좌코드'].match(/\((.*?)\)/)?.[1] || '';
+                                               const isRmv = m._previewRemoved;
+                                               const isAdd = m._previewAdded;
+                                               return (
+                                                  <div key={i} style={{ 
+                                                      display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                                                      textDecoration: isRmv ? 'line-through' : 'none',
+                                                      opacity: isRmv ? 0.6 : 1,
+                                                      background: isRmv ? 'rgba(255, 85, 85, 0.15)' : isAdd ? 'rgba(74, 226, 144, 0.15)' : 'transparent',
+                                                      border: isRmv ? '1px dashed rgba(255, 85, 85, 0.4)' : isAdd ? '1px solid rgba(74, 226, 144, 0.4)' : 'none',
+                                                      padding: '4px', borderRadius: '6px', marginBottom: i < list.length - 1 ? '4px' : '0'
+                                                  }}>
+                                                    <span style={{ fontWeight: 600, color: isRmv ? '#ffb8b8' : isAdd ? '#a8ffb2' : 'white', fontSize: '0.9rem' }}>{subjectName}</span>
+                                                    {classGroup && <span style={{ fontSize: '0.75rem', color: isRmv ? '#ffb8b8' : isAdd ? '#a8ffb2' : '#ffb86c', marginTop: '2px' }}>{classGroup}</span>}
+                                                  </div>
+                                               )
+                                            })}
+                                            {!hasItems && <span style={{ color: 'rgba(255,255,255,0.1)' }}>-</span>}
+                                         </td>
+                                       )
+                                    })}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                         </div>
+                      );
+                  })()}
+              </div>
+
+              {/* 사유 입력 및 확인 버튼 */}
+              <div style={{ marginTop: '20px', display: 'flex', alignItems: 'flex-end', gap: '16px', background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '16px' }}>
+                 <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>적용 사유 (예: 연가, 결보강 등)</label>
+                    <input type="text" value={previewReason} onChange={(e) => setPreviewReason(e.target.value)}
+                           style={{ width: '100%', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 16px', borderRadius: '12px', fontSize: '1rem', outline: 'none' }} 
+                           placeholder="사유를 입력하세요" autoFocus />
+                 </div>
+                 <button onClick={handleConfirmApply}
+                         style={{ background: 'white', color: 'black', border: 'none', padding: '12px 32px', borderRadius: '12px', fontWeight: 600, fontSize: '1.05rem', cursor: 'pointer', transition: 'transform 0.2s' }}
+                         onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                         onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                    변경 시간표 확정 적용하기
+                 </button>
+              </div>
+
+           </div>
+        </div>
+      )}
 
     </div>
   );
