@@ -16,7 +16,6 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pendingRoles, setPendingRoles] = useState<Record<string, string>>({});
 
   const fetchData = () => {
     setLoading(true);
