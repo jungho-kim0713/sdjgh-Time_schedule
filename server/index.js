@@ -53,6 +53,7 @@ function canEditSchedule(req, res, next) {
 
 const { sheets } = require('./services/googleAuth');
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const MASTER_SPREADSHEET_ID = process.env.SPREADSHEET_MASTER_ID;
 
 const NodeCache = require('node-cache');
 // stdTTL: 300초(5분) 동안 메모리에 데이터 유지 (API 호출량 획기적 감소)
@@ -86,11 +87,19 @@ app.get('/api/data', authenticateToken, async (req, res) => {
         }
         
         console.log('📡 구글 스프레드시트 API를 호출합니다 (캐시 없음)...');
-        const ranges = ["'강좌_마스터'!A:G", "'교사_명렬표'!A:H", "'기준_시간표'!A:D", "'일별_시간표'!A:G", "'학생_명렬표'!A:N", "'사용자_관리'!A:F"];
-        const response = await sheets.spreadsheets.values.batchGet({
-            spreadsheetId: SPREADSHEET_ID,
-            ranges: ranges
-        });
+        // 학기별 시트 (배치 조회)
+        const ranges = ["'강좌_마스터'!A:G", "'교사_명렬표'!A:H", "'기준_시간표'!A:D", "'일별_시간표'!A:G", "'학생_명렬표'!A:N"];
+        const [response, masterResponse] = await Promise.all([
+            sheets.spreadsheets.values.batchGet({
+                spreadsheetId: SPREADSHEET_ID,
+                ranges: ranges
+            }),
+            // 사용자_관리는 마스터 시트에서 별도 조회
+            sheets.spreadsheets.values.get({
+                spreadsheetId: MASTER_SPREADSHEET_ID,
+                range: "'사용자_관리'!A:F"
+            })
+        ]);
 
         const valueRanges = response.data.valueRanges;
         
@@ -99,7 +108,7 @@ app.get('/api/data', authenticateToken, async (req, res) => {
         const baseSchedules = parseSheetData(valueRanges[2].values); // 기준_시간표
         const dailySchedules = parseSheetData(valueRanges[3].values); // 일별_시간표
         const students = parseSheetData(valueRanges[4].values); // 학생_명렬표
-        const users = parseSheetData(valueRanges[5]?.values || []); // 사용자_관리
+        const users = parseSheetData(masterResponse.data.values || []); // 사용자_관리 (마스터 시트)
 
         const dataToCache = { courses, teachers, baseSchedules, dailySchedules, students, users };
         appCache.set(cacheKey, dataToCache);
@@ -149,9 +158,9 @@ app.post('/api/users/update', authenticateToken, isAdmin, async (req, res) => {
     try {
         const { email, role, status } = req.body;
         
-        // 1. 현재 사용자_관리 시트 데이터 가져오기
+        // 1. 마스터 시트에서 사용자_관리 데이터 가져오기
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
+            spreadsheetId: MASTER_SPREADSHEET_ID,
             range: "'사용자_관리'!A:F"
         });
         const rows = response.data.values;
@@ -179,9 +188,9 @@ app.post('/api/users/update', authenticateToken, isAdmin, async (req, res) => {
         currentRowData[3] = role;   // D열: 권한
         currentRowData[4] = status; // E열: 상태
 
-        // 4. 구글 시트 해당 행 업데이트
+        // 4. 마스터 시트 해당 행 업데이트
         await sheets.spreadsheets.values.update({
-            spreadsheetId: SPREADSHEET_ID,
+            spreadsheetId: MASTER_SPREADSHEET_ID,
             range: `'사용자_관리'!A${targetRowIndex}:F${targetRowIndex}`,
             valueInputOption: "USER_ENTERED",
             resource: { values: [currentRowData] }
@@ -217,9 +226,9 @@ app.post('/api/auth/google', async (req, res) => {
         const payload = ticket.getPayload();
         const { email, name } = payload;
         
-        // 시트 확인
+        // 마스터 시트에서 사용자 확인
         const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
+            spreadsheetId: MASTER_SPREADSHEET_ID,
             range: "'사용자_관리'!A:F"
         });
         const rows = response.data.values || [];
@@ -245,10 +254,10 @@ app.post('/api/auth/google', async (req, res) => {
             return res.json({ success: true, token, user: { email, name, role, status } });
             
         } else {
-            // 미가입 유저 -> 시트에 Pending으로 바로 추가 (임시용 교사ID는 비워둡니다)
+            // 미가입 유저 -> 마스터 시트에 Pending으로 추가
             const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
             await sheets.spreadsheets.values.append({
-                spreadsheetId: SPREADSHEET_ID,
+                spreadsheetId: MASTER_SPREADSHEET_ID,
                 range: "'사용자_관리'!A:F",
                 valueInputOption: "USER_ENTERED",
                 resource: { values: [[email, name, '', '학생', 'Pending', now]] }

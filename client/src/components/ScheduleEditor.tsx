@@ -643,8 +643,29 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
       </div>
 
       {/* 중앙 액션 영역 (스크롤에 밀리지 않게 고정 속성 부여) */}
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px', flexShrink: 0, width: '160px', position: 'sticky', top: '100px', height: 'fit-content', alignSelf: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '16px', flexShrink: 0, width: '180px', position: 'sticky', top: '100px', height: 'fit-content', alignSelf: 'center' }}>
         
+        {/* 안내문 툴팁 영역 */}
+        <div style={{ 
+          background: 'rgba(74, 144, 226, 0.1)', 
+          border: '1px solid rgba(74, 144, 226, 0.3)', 
+          borderRadius: '12px', 
+          padding: '14px 12px', 
+          fontSize: '0.8rem', 
+          color: 'var(--text-secondary)', 
+          textAlign: 'center', 
+          lineHeight: '1.5', 
+          width: '100%', 
+          wordBreak: 'keep-all',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+        }}>
+          {actionType === 'exchange' && <span style={{color: '#fff'}}>수업 교체는 수업 시간을 서로 바꾸는 작업입니다.</span>}
+          {actionType === 'makeup' && <span style={{color: '#fff'}}>수업 대강은 다른 선생님이 대신 수업을 진행하는 작업입니다.</span>}
+          {actionType === 'realMakeup' && <span style={{color: '#fff'}}>수업 보강은 결손된 수업을 빈 시간에 채워 넣는 작업입니다.</span>}
+          {actionType === 'selfStudy' && <span style={{color: '#fff'}}>수업 자습은 선생님 없이 학생들이 자습을 진행하는 작업입니다.</span>}
+          {actionType === 'merge' && <span style={{color: '#fff'}}>클래스 통합은 다른 반의 동일 과목 수업에 합류시키는 작업입니다.</span>}
+        </div>
+
         <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--glass-outer)', border: '1px solid var(--glass-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
         </div>
