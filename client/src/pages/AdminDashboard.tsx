@@ -77,7 +77,7 @@ const AdminDashboard: React.FC = () => {
             Admin Panel
           </span>
           <h1 style={{ fontSize: '3.5rem', fontWeight: 600, marginTop: '20px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-            관리자 대시보드
+            사용자 관리
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '10px' }}>
             가입한 계정의 승인 상태 및 권한을 관리합니다.

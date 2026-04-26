@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ScheduleEditor from '../components/ScheduleEditor';
 import ScheduleAnalysis from '../components/ScheduleAnalysis';
+import EventManagement from '../components/EventManagement';
 
 const DAYS = ['월', '화', '수', '목', '금'];
 const PERIODS = ['1', '2', '3', '4', '5', '6', '7'];
@@ -16,7 +17,7 @@ for (let g = 1; g <= 3; g++) {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'view' | 'edit' | 'analyze'>('view');
+  const [activeTab, setActiveTab] = useState<'view' | 'edit' | 'analyze' | 'calendar'>('view');
 
   useEffect(() => {
     sessionStorage.setItem('dashboard_activeTab', activeTab);
@@ -26,12 +27,15 @@ const Dashboard: React.FC = () => {
   const [dailySchedules, setDailySchedules] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>('all');
   const [selectedClass, setSelectedClass] = useState<string>('none');
+  const [selectedStudent, setSelectedStudent] = useState<string>('none');
   const [userRole, setUserRole] = useState<string>('');
+  const [userEmail, setUserEmail] = useState<string>('');
 
   const [targetDate, setTargetDate] = useState<string>(() => {
      return new Date().toISOString().split('T')[0];
@@ -45,15 +49,16 @@ const Dashboard: React.FC = () => {
       try {
         const user = JSON.parse(userStr);
         setUserRole(user.role);
-        const saved = sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit' | 'analyze';
-        if (saved === 'edit' && user.role === '학생') {
+        setUserEmail(user.email);
+        const saved = sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit' | 'analyze' | 'calendar';
+        if ((saved === 'edit' || saved === 'calendar') && user.role === '학생') {
           setActiveTab('view');
         } else if (saved) {
           setActiveTab(saved);
         }
       } catch (e) {}
     } else {
-      const saved = sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit';
+      const saved = sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit' | 'analyze' | 'calendar';
       if (saved) setActiveTab(saved);
     }
   }, []);
@@ -66,6 +71,7 @@ const Dashboard: React.FC = () => {
           setDailySchedules(res.data.data.dailySchedules || []);
           setCourses(res.data.data.courses || []);
           setTeachers(res.data.data.teachers || []);
+          setStudents(res.data.data.students || []);
         }
         setLoading(false);
       })
@@ -78,6 +84,22 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 구글 계정으로 로그인한 학생의 기본 학급/학생 자동 선택
+  useEffect(() => {
+    if (userRole === '학생' && students.length > 0 && userEmail && selectedClass === 'none') {
+      const me = students.find(s => s['구글 계정'] === userEmail);
+      if (me && me['학번']) {
+        const hakbun = String(me['학번']);
+        if (hakbun.length === 5) {
+          const grade = parseInt(hakbun[0], 10);
+          const cls = parseInt(hakbun.substring(1, 3), 10);
+          setSelectedClass(`${grade}-${cls}`);
+          setSelectedStudent(hakbun);
+        }
+      }
+    }
+  }, [students, userEmail, userRole, selectedClass]);
 
   const weekDates = useMemo(() => {
      const d = new Date(targetDate);
@@ -118,11 +140,15 @@ const Dashboard: React.FC = () => {
   // 교사 선택 시 학급 선택 초기화, 학급 선택 시 교사 선택 초기화
   const handleTeacherChange = (val: string) => {
     setSelectedTeacherId(val);
-    if (val !== 'all') setSelectedClass('none');
+    if (val !== 'all') {
+       setSelectedClass('none');
+       setSelectedStudent('none');
+    }
   };
 
   const handleClassChange = (val: string) => {
     setSelectedClass(val);
+    setSelectedStudent('none');
     if (val !== 'none') {
       setSelectedTeacherId('all');
       setSelectedSubject('all');
@@ -136,7 +162,7 @@ const Dashboard: React.FC = () => {
   }, [selectedClass, selectedTeacherId]);
 
   const isSpecialCourse = (code: string) => {
-    return code === '자율(전체)' || code === '클럽(전체)' || code === '자습(전체)' || code.startsWith('부장(회의)');
+    return code === '자율(전체)' || code === '클럽(전체)' || code === '자습(전체)' || code.startsWith('부장(회의)') || code.startsWith('행사(');
   };
 
   const getSpecialStyle = (code: string): { color: string; bg: string; emoji: string } => {
@@ -144,6 +170,7 @@ const Dashboard: React.FC = () => {
     if (code === '클럽(전체)') return { color: '#ffb86c', bg: 'rgba(255,184,108,0.15)', emoji: '🎯' };
     if (code === '자습(전체)') return { color: '#8be9fd', bg: 'rgba(139,233,253,0.15)', emoji: '📖' };
     if (code.startsWith('부장(회의)')) return { color: '#ff79c6', bg: 'rgba(255,121,198,0.15)', emoji: '📋' };
+    if (code.startsWith('행사(')) return { color: '#f1fa8c', bg: 'rgba(241,250,140,0.15)', emoji: '🎉' };
     return { color: 'white', bg: 'transparent', emoji: '' };
   };
 
@@ -164,6 +191,16 @@ const Dashboard: React.FC = () => {
      Object.values(overrideMap).forEach(change => {
          if (change['상태'] === '이동(OUT)') {
              baseList = baseList.filter(b => b['강좌코드'] !== change['강좌코드']);
+         } else if (change['상태'] === '행사') {
+             baseList.push({
+                 강좌코드: change['강좌코드'],
+                 교시: change['교시'],
+                 요일: dayStr,
+                 담당교사: '',
+                 isOverride: true,
+                 status: '행사',
+                 reason: change['사유']
+             });
          } else {
              const existingIdx = baseList.findIndex(b => b['강좌코드'] === change['강좌코드']);
              const overrideItem = {
@@ -182,6 +219,22 @@ const Dashboard: React.FC = () => {
          }
      });
 
+     const activeEvents = baseList.filter(b => b.status === '행사');
+     if (activeEvents.length > 0) {
+        const isAll = activeEvents.some(e => e['강좌코드'] === '행사(전체)');
+        if (isAll) {
+            baseList = baseList.filter(b => b.status === '행사' && b['강좌코드'] === '행사(전체)');
+        } else {
+            const gradeEvents = activeEvents.map(e => e['강좌코드'].match(/\d/)?.[0]).filter(Boolean);
+            baseList = baseList.filter(b => {
+                if (b.status === '행사') return true;
+                const m = b['강좌코드'].match(/\((\d)-/);
+                if (m && gradeEvents.includes(m[1])) return false;
+                return true;
+            });
+        }
+     }
+
      return baseList;
   };
 
@@ -192,13 +245,39 @@ const Dashboard: React.FC = () => {
     const classSchedules = allSchedules.filter(s => {
       if (s['강좌코드'] === '자율(전체)') return true;
       if (s['강좌코드'] === '클럽(전체)') return true;
-      return s['강좌코드'].includes(`(${selectedClass})`);
+      
+      if (s['강좌코드'].includes(`(${selectedClass})`)) return true;
+      
+      if (selectedStudent !== 'none') {
+        const student = students.find(st => String(st['학번']) === selectedStudent);
+        if (student) {
+          if (s['강좌코드'] === student['수강강좌1'] || s['강좌코드'] === student['수강강좌2']) {
+             return true;
+          }
+        }
+      }
+      return false;
     });
 
     const isSelfStudy = dailySchedules.some(d =>
       d['날짜'] === dateStr && String(d['교시']) === period &&
       d['강좌코드'].includes(`(${selectedClass})`) && d['상태'] === '자습'
     );
+
+    const eventSchedule = classSchedules.find(s => s.status === '행사');
+    if (eventSchedule) {
+      const s = getSpecialStyle(eventSchedule['강좌코드']);
+      return {
+        elements: (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <span style={{ fontWeight: 600, color: s.color }}>{s.emoji} 행사</span>
+            <span style={{ fontSize: '0.85rem', color: s.color }}>{eventSchedule.reason}</span>
+          </div>
+        ),
+        isSpecial: '행사',
+        raw: [eventSchedule]
+      };
+    }
 
     if (classSchedules.length === 0 || isSelfStudy) {
       const s = getSpecialStyle('자습(전체)');
@@ -258,6 +337,7 @@ const Dashboard: React.FC = () => {
           .map(c => c['강좌코드']);
 
       const myScheduled = matched.filter(m => {
+          if (m.status === '행사') return true;
           if (m.isOverride) return m['담당교사'] === selectedTeacherId;
           return teacherCourses.includes(m['강좌코드']);
       });
@@ -285,9 +365,10 @@ const Dashboard: React.FC = () => {
 
          if (isSpecialCourse(m['강좌코드'])) {
            const s = getSpecialStyle(m['강좌코드']);
+           const label = m.status === '행사' ? m.reason : subjectName;
            return (
              <div key={idx} style={{ color: s.color, fontWeight: 600, fontSize: '0.95rem' }}>
-               {s.emoji} {subjectName}
+               {s.emoji} {label}
              </div>
            );
          }
@@ -316,6 +397,12 @@ const Dashboard: React.FC = () => {
     if (specialItems.some(m => m['강좌코드'] === '클럽(전체)')) {
       const s = getSpecialStyle('클럽(전체)');
       return { elements: <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem', padding: '4px' }}>{s.emoji} 클럽 시간</div>, raw: specialItems, isSpecial: '클럽' };
+    }
+    if (specialItems.some(m => m.status === '행사')) {
+      const event = specialItems.find(m => m.status === '행사');
+      const s = getSpecialStyle(event['강좌코드']);
+      const scope = event['강좌코드'].replace('행사(', '').replace(')', '');
+      return { elements: <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem', padding: '4px', textAlign: 'center' }}>{s.emoji} {event.reason}<div style={{fontSize:'0.75rem', marginTop:'4px'}}>{scope}</div></div>, raw: specialItems, isSpecial: '행사' };
     }
 
     if(normalItems.length === 0) return { elements: null, raw: [] };
@@ -445,6 +532,9 @@ const Dashboard: React.FC = () => {
         borderRadius: '9999px', zIndex: 50, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.5)', animation: 'fadeInUp 0.8s'
       }}>
         <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 조회</button>
+        {(userRole === '업무담당자' || userRole === '관리자') && (
+          <button onClick={() => setActiveTab('calendar')} style={{ background: activeTab === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'calendar' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>학사일정 관리</button>
+        )}
         {userRole !== '학생' && (
           <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 수정</button>
         )}
@@ -452,7 +542,7 @@ const Dashboard: React.FC = () => {
           <button onClick={() => setActiveTab('analyze')} style={{ background: activeTab === 'analyze' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'analyze' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 분석</button>
         )}
         {userRole === '관리자' && (
-          <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>관리자</button>
+          <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>사용자 관리</button>
         )}
         <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }} style={{ background: 'transparent', color: '#ff5555', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)' }}>로그아웃</button>
       </nav>
@@ -462,10 +552,10 @@ const Dashboard: React.FC = () => {
         <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <span style={{ borderRadius: '9999px', padding: '6px 12px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600, background: 'var(--glass-outer)', color: 'var(--text-secondary)' }}>
-              {activeTab === 'view' ? 'My Schedule' : activeTab === 'edit' ? 'Schedule Management' : 'Schedule Analysis'}
+              {activeTab === 'view' ? 'My Schedule' : activeTab === 'edit' ? 'Schedule Management' : activeTab === 'analyze' ? 'Schedule Analysis' : 'Academic Calendar'}
             </span>
             <h1 style={{ fontSize: '3.5rem', fontWeight: 600, marginTop: '20px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              {activeTab === 'view' ? '주간 시간표 조회' : activeTab === 'edit' ? '시간표 교체 및 통합' : '과목별 수업 시간 분석'}
+              {activeTab === 'view' ? '시간표 조회' : activeTab === 'edit' ? '시간표 수정' : activeTab === 'analyze' ? '시간표 분석' : '학사일정 관리'}
             </h1>
           </div>
 
@@ -543,10 +633,35 @@ const Dashboard: React.FC = () => {
                     </select>
                   </div>
 
-                  <div style={{ ...dropdownStyle, opacity: 0.45, cursor: 'not-allowed' }}>
+                  <div style={{
+                    ...dropdownStyle,
+                    border: selectedStudent !== 'none'
+                      ? '1px solid rgba(139,233,253,0.4)'
+                      : '1px solid rgba(255,255,255,0.1)',
+                    background: selectedStudent !== 'none'
+                      ? 'rgba(139,233,253,0.08)'
+                      : 'rgba(255,255,255,0.05)',
+                  }}>
                     <label style={labelStyle}>학생 선택</label>
-                    <select disabled style={{ ...selectStyle, cursor: 'not-allowed' }}>
-                      <option>준비 중</option>
+                    <select
+                      value={selectedStudent}
+                      onChange={(e) => setSelectedStudent(e.target.value)}
+                      disabled={selectedClass === 'none'}
+                      style={{ ...selectStyle, color: selectedStudent !== 'none' ? '#8be9fd' : 'white', cursor: selectedClass === 'none' ? 'not-allowed' : 'pointer' }}
+                    >
+                      <option style={{color:'black'}} value="none">전체</option>
+                      {students
+                        .filter(s => {
+                           if (!s['학번'] || String(s['학번']).length !== 5) return false;
+                           const hakbun = String(s['학번']);
+                           const grade = parseInt(hakbun[0], 10);
+                           const cls = parseInt(hakbun.substring(1, 3), 10);
+                           return `${grade}-${cls}` === selectedClass;
+                        })
+                        .sort((a, b) => parseInt(a['학번']) - parseInt(b['학번']))
+                        .map(s => (
+                          <option style={{color:'black'}} key={s['학번']} value={s['학번']}>{s['이름']} ({String(s['학번']).substring(3)}번)</option>
+                        ))}
                     </select>
                   </div>
                 </div>
@@ -557,13 +672,13 @@ const Dashboard: React.FC = () => {
 
         {/* 학급 선택 시 헤더 배지 */}
         {activeTab === 'view' && selectedClass !== 'none' && (
-          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ background: 'rgba(139,233,253,0.15)', border: '1px solid rgba(139,233,253,0.4)', color: '#8be9fd', borderRadius: '9999px', padding: '6px 16px', fontSize: '0.9rem', fontWeight: 600 }}>
-              📚 {selectedClass}반 주간 시간표
+          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+            <span style={{ whiteSpace: 'nowrap', flexShrink: 0, background: 'rgba(139,233,253,0.15)', border: '1px solid rgba(139,233,253,0.4)', color: '#8be9fd', borderRadius: '9999px', padding: '6px 16px', fontSize: '0.9rem', fontWeight: 600 }}>
+              📚 {selectedClass}반 {selectedStudent !== 'none' ? `${students.find(s => String(s['학번']) === selectedStudent)?.['이름']} ` : ''}주간 시간표
             </span>
             <button
-              onClick={() => setSelectedClass('none')}
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', borderRadius: '9999px', padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer' }}
+              onClick={() => { setSelectedClass('none'); setSelectedStudent('none'); }}
+              style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', borderRadius: '9999px', padding: '4px 12px', fontSize: '0.8rem', cursor: 'pointer', transition: 'var(--transition-spring)' }}
             >
               ✕ 초기화
             </button>
@@ -632,12 +747,18 @@ const Dashboard: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-            ) : activeTab === 'analyze' ? (
-                <ScheduleAnalysis courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} />
-            ) : userRole === '학생' ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '100px' }}>시간표 수정 권한이 없습니다.</div>
             ) : (
-                <ScheduleEditor courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} teachers={teachers} onUpdate={fetchData} />
+              <div className="double-bezel-inner" style={{ padding: '32px', minHeight: '500px' }}>
+                {activeTab === 'analyze' ? (
+                  <ScheduleAnalysis courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} />
+                ) : activeTab === 'calendar' ? (
+                  <EventManagement dailySchedules={dailySchedules} onUpdate={fetchData} />
+                ) : userRole === '학생' ? (
+                    <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '100px' }}>시간표 수정 권한이 없습니다.</div>
+                ) : (
+                    <ScheduleEditor courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} teachers={teachers} onUpdate={fetchData} />
+                )}
+              </div>
             )}
 
           </div>

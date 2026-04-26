@@ -54,6 +54,10 @@ function canEditSchedule(req, res, next) {
 const { sheets } = require('./services/googleAuth');
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
+const NodeCache = require('node-cache');
+// stdTTL: 300초(5분) 동안 메모리에 데이터 유지 (API 호출량 획기적 감소)
+const appCache = new NodeCache({ stdTTL: 300, checkperiod: 320 });
+
 // 유틸리티 함수: 2차원 배열 데이터를 배열 오브젝트로 파싱 (첫 줄을 key로 사용)
 function parseSheetData(values) {
     if (!values || values.length < 2) return [];
@@ -71,6 +75,17 @@ function parseSheetData(values) {
 // 종합 메인 데이터(프론트엔드 테이블 및 필터 렌더용) fetching API (인증 필요)
 app.get('/api/data', authenticateToken, async (req, res) => {
     try {
+        const cacheKey = 'allSheetData';
+        const cachedData = appCache.get(cacheKey);
+        
+        if (cachedData) {
+            return res.json({
+                success: true,
+                data: cachedData
+            });
+        }
+        
+        console.log('📡 구글 스프레드시트 API를 호출합니다 (캐시 없음)...');
         const ranges = ["'강좌_마스터'!A:G", "'교사_명렬표'!A:H", "'기준_시간표'!A:D", "'일별_시간표'!A:G", "'학생_명렬표'!A:N", "'사용자_관리'!A:F"];
         const response = await sheets.spreadsheets.values.batchGet({
             spreadsheetId: SPREADSHEET_ID,
@@ -86,9 +101,12 @@ app.get('/api/data', authenticateToken, async (req, res) => {
         const students = parseSheetData(valueRanges[4].values); // 학생_명렬표
         const users = parseSheetData(valueRanges[5]?.values || []); // 사용자_관리
 
+        const dataToCache = { courses, teachers, baseSchedules, dailySchedules, students, users };
+        appCache.set(cacheKey, dataToCache);
+
         res.json({
             success: true,
-            data: { courses, teachers, baseSchedules, dailySchedules, students, users }
+            data: dataToCache
         });
 
     } catch (error) {
@@ -115,6 +133,9 @@ app.post('/api/schedule/update', authenticateToken, canEditSchedule, async (req,
             valueInputOption: "USER_ENTERED",
             resource: { values: values }
         });
+
+        // 🌟 수정이 발생했으므로 캐시를 강제 초기화 (다음 조회 시 구글 시트에서 새로 읽어옴)
+        appCache.del('allSheetData');
 
         res.json({ success: true, message: '일별_시간표 DB 누적 처리가 완료되었습니다.' });
     } catch (error) {
@@ -165,6 +186,9 @@ app.post('/api/users/update', authenticateToken, isAdmin, async (req, res) => {
             valueInputOption: "USER_ENTERED",
             resource: { values: [currentRowData] }
         });
+
+        // 🌟 수정이 발생했으므로 캐시를 강제 초기화
+        appCache.del('allSheetData');
 
         res.json({ success: true, message: '사용자 상태가 성공적으로 업데이트되었습니다.' });
     } catch (error) {
@@ -229,6 +253,10 @@ app.post('/api/auth/google', async (req, res) => {
                 valueInputOption: "USER_ENTERED",
                 resource: { values: [[email, name, '', '학생', 'Pending', now]] }
             });
+            
+            // 🌟 사용자가 새로 등록되었으므로 캐시 초기화
+            appCache.del('allSheetData');
+
             return res.json({ success: false, status: 'Pending', message: '사이트에 첫 접근하여 가입 신청이 되었습니다. 관리자 승인 후 재로그인 해주세요.' });
         }
         

@@ -24,9 +24,9 @@ const isWeekday = (dateStr: string): boolean => {
 const formatDate = (date: Date): string =>
   date.toISOString().split('T')[0];
 
-const isSpecialCourse = (code: string) =>
-  code === '자율(전체)' || code === '클럽(전체)' ||
-  code === '자습(전체)' || code.startsWith('부장(회의)');
+const isSpecialCourse = (code: string) => {
+  return code === '자율(전체)' || code === '클럽(전체)' || code === '자습(전체)' || code.startsWith('부장(회의)') || code.startsWith('행사(');
+};
 
 // 취소된 txID 집합을 반환
 const getCancelledTxIDs = (dailyForDate: any[]): Set<string> => {
@@ -87,8 +87,16 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
 
           const activeCourses: string[] = [];
 
+          const events = activeDaily.filter(d => String(d['교시']) === p && d['상태'] === '행사');
+          const isAllEvent = events.some(e => e['강좌코드'] === '행사(전체)');
+          const gradeEvents = events.map(e => e['강좌코드'].match(/\d/)?.[0]).filter(Boolean);
+
           // 기준 시간표에서 제거되지 않은 강좌 추가
           baseCourses.forEach(s => {
+            if (isAllEvent) return;
+            const m = s['강좌코드'].match(/\((\d)-/);
+            if (m && gradeEvents.includes(m[1])) return;
+
             if (!removedCodes.has(s['강좌코드'])) {
               activeCourses.push(s['강좌코드']);
             }
@@ -248,7 +256,7 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                       {year}학년
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '8px' }}>
                       {classResults.map(({ classInfo, count }) => {
                         const maxCount = Math.max(...results.map(r => r.count));
                         const minCount = Math.min(...results.map(r => r.count));
@@ -258,13 +266,13 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
                           <div key={classInfo} style={{
                             background: isMax ? 'rgba(80,250,123,0.08)' : isMin ? 'rgba(255,85,85,0.08)' : 'rgba(255,255,255,0.04)',
                             border: `1px solid ${isMax ? 'rgba(80,250,123,0.25)' : isMin ? 'rgba(255,85,85,0.2)' : 'rgba(255,255,255,0.08)'}`,
-                            borderRadius: '12px',
-                            padding: '14px 12px',
+                            borderRadius: '10px',
+                            padding: '10px 8px',
                             textAlign: 'center',
                           }}>
-                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginBottom: '6px' }}>{classInfo}반</div>
-                            <div style={{ color: isMax ? '#50fa7b' : isMin ? '#ff5555' : 'white', fontSize: '1.5rem', fontWeight: 700, lineHeight: 1 }}>{count}</div>
-                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.72rem', marginTop: '4px' }}>시간</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '4px' }}>{classInfo}반</div>
+                            <div style={{ color: isMax ? '#50fa7b' : isMin ? '#ff5555' : 'white', fontSize: '1.3rem', fontWeight: 700, lineHeight: 1 }}>{count}</div>
+                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.7rem', marginTop: '4px' }}>시간</div>
                           </div>
                         );
                       })}
