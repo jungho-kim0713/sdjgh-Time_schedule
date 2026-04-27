@@ -108,12 +108,12 @@ const AdminDashboard: React.FC = () => {
     <div style={{ minHeight: '100vh', padding: '60px 40px', maxWidth: '1200px', margin: '0 auto' }} className="animate-fade-in">
 
       {/* 헤더 */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '40px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <span style={{ borderRadius: '9999px', padding: '6px 12px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600, background: 'var(--glass-outer)', color: 'var(--text-secondary)' }}>
             Admin Panel
           </span>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: 600, marginTop: '20px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+          <h1 style={{ fontSize: 'clamp(1.8rem, 5vw, 2.8rem)', fontWeight: 600, marginTop: '16px', letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
             사용자 관리
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '10px' }}>
@@ -125,15 +125,38 @@ const AdminDashboard: React.FC = () => {
             )}
           </p>
         </div>
-        <button
-          onClick={() => navigate('/dashboard')}
-          style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '12px 24px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', transition: 'var(--transition-spring)', fontWeight: 600 }}
-        >
-          뒤로 가기
-        </button>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+          <button
+            onClick={() => navigate('/dashboard')}
+            style={{ background: 'rgba(255,255,255,0.08)', color: 'white', padding: '8px 16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', transition: 'var(--transition-spring)', fontWeight: 600, fontSize: '0.85rem', fontFamily: 'Pretendard', width: 'auto' }}
+          >
+            ← 뒤로 가기
+          </button>
+          <button
+            id="admin-clear-cache-btn"
+            onClick={handleClearCache}
+            disabled={cacheClearing}
+            style={{
+              padding: '8px 16px',
+              background: cacheClearing ? 'rgba(255,255,255,0.05)' : 'rgba(255,184,108,0.15)',
+              color: cacheClearing ? 'var(--text-secondary)' : '#ffb86c',
+              border: '1px solid rgba(255,184,108,0.3)',
+              borderRadius: '10px',
+              cursor: cacheClearing ? 'not-allowed' : 'pointer',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              whiteSpace: 'nowrap',
+              transition: 'var(--transition-spring)',
+              fontFamily: 'Pretendard',
+              width: 'auto',
+            }}
+          >
+            {cacheClearing ? '⏳ 초기화 중...' : '🔄 캐시 초기화'}
+          </button>
+        </div>
       </div>
 
-      {/* 툴바: 검색 + 캐시 초기화 */}
+      {/* 툴바: 검색 */}
       <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
         {/* 검색창 */}
         <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
@@ -176,28 +199,6 @@ const AdminDashboard: React.FC = () => {
             {filteredUsers.length} / {users.length}명
           </span>
         )}
-
-        {/* 캐시 초기화 버튼 */}
-        <button
-          id="admin-clear-cache-btn"
-          onClick={handleClearCache}
-          disabled={cacheClearing}
-          style={{
-            padding: '12px 20px',
-            background: cacheClearing ? 'rgba(255,255,255,0.05)' : 'rgba(255,184,108,0.15)',
-            color: cacheClearing ? 'var(--text-secondary)' : '#ffb86c',
-            border: '1px solid rgba(255,184,108,0.3)',
-            borderRadius: '12px',
-            cursor: cacheClearing ? 'not-allowed' : 'pointer',
-            fontWeight: 600,
-            fontSize: '0.9rem',
-            whiteSpace: 'nowrap',
-            transition: 'var(--transition-spring)',
-            fontFamily: 'Pretendard, sans-serif',
-          }}
-        >
-          {cacheClearing ? '⏳ 초기화 중...' : '🔄 캐시 초기화'}
-        </button>
       </div>
 
       {/* 캐시 메시지 */}
