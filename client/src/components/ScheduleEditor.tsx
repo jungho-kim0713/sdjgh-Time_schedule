@@ -799,8 +799,10 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
               <div style={{ display: 'flex', gap: '20px', minWidth: 'fit-content' }}>
                   {/* 원본 교사 시간표 렌더링 */}
                   {(() => {
-                      const dates = getWeekDates(selectedDate);
-                      const days = ['월', '화', '수', '목', '금'];
+                      const week1 = getWeekDates(selectedDate);
+                      const week2 = actionType === 'exchange' || actionType === 'realMakeup' ? getWeekDates(previewTarget.date) : [];
+                      const dates = Array.from(new Set([...week1, ...week2])).sort();
+                      const days = dates.map(d => getDayString(d));
                       const periods = ['1', '2', '3', '4', '5', '6', '7'];
 
                       return (
@@ -874,8 +876,10 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
                   {/* 타겟 교사 시간표 렌더링 */}
                   {(() => {
-                      const dates = getWeekDates(previewTarget.date);
-                      const days = ['월', '화', '수', '목', '금'];
+                      const week1 = getWeekDates(previewTarget.date);
+                      const week2 = actionType === 'exchange' || actionType === 'realMakeup' ? getWeekDates(selectedDate) : [];
+                      const dates = Array.from(new Set([...week1, ...week2])).sort();
+                      const days = dates.map(d => getDayString(d));
                       const periods = ['1', '2', '3', '4', '5', '6', '7'];
 
                       return (
