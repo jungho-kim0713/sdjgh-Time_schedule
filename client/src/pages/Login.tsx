@@ -90,9 +90,23 @@ const Login: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <form onSubmit={(e) => { e.preventDefault(); navigate('/dashboard'); }} style={{ display: 'flex', flexDirection: 'column', animation: 'fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
-                <input type="text" placeholder="아이디 (또는 교직원 번호)" required />
-                <input type="password" placeholder="비밀번호" required />
+              <form onSubmit={async (e) => { 
+                e.preventDefault(); 
+                try {
+                  const res = await axios.post('/api/auth/local');
+                  if (res.data.success) {
+                    localStorage.setItem('token', res.data.token);
+                    localStorage.setItem('user', JSON.stringify(res.data.user));
+                    alert(`${res.data.user.name}님 환영합니다! (업무담당자 모드)`);
+                    navigate('/dashboard');
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert('일반 로그인 처리 중 오류가 발생했습니다.');
+                }
+              }} style={{ display: 'flex', flexDirection: 'column', animation: 'fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
+                <input type="text" placeholder="아이디 (또는 교직원 번호)" />
+                <input type="password" placeholder="비밀번호" />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px', fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '0 4px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                     <input type="checkbox" style={{ width: 'auto', marginBottom: 0, accentColor: 'white' }} /> 로그인 유지

@@ -130,3 +130,48 @@ button {
 .animate-fade-in {
   animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Mobile Responsive Styles for Schedule Table */
+@media (max-width: 768px) {
+  /* Make main container tighter on mobile */
+  .mobile-main {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* Give horizontal padding back to the header sections */
+  .mobile-header-padding {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .double-bezel-outer.mobile-edge {
+    padding: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .double-bezel-inner.mobile-edge-inner {
+    padding: 16px 0 !important;
+    border-radius: 0;
+  }
+
+  .schedule-table {
+    border-spacing: 2px !important;
+  }
+
+  .schedule-table th, .schedule-table td {
+    padding: 8px 2px !important;
+    border-radius: 4px !important;
+  }
+
+  .schedule-table th div, .schedule-table td div {
+    font-size: 0.8rem !important;
+    padding: 4px 0 !important;
+  }
+
+  .schedule-table td > div {
+    min-height: 48px;
+  }
+}

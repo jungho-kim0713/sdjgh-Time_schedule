@@ -548,9 +548,9 @@ const Dashboard: React.FC = () => {
         <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }} style={{ background: 'transparent', color: '#ff5555', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>로그아웃</button>
       </nav>
 
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: 'clamp(24px, 5vw, 60px) clamp(12px, 4vw, 40px)', width: '100%' }} className="animate-fade-in">
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: 'clamp(24px, 5vw, 60px) clamp(12px, 4vw, 40px)', width: '100%' }} className="animate-fade-in mobile-main">
 
-          <div style={{ marginBottom: '40px', display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div className="mobile-header-padding" style={{ marginBottom: '40px', display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <span style={{ borderRadius: '9999px', padding: '6px 12px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600, background: 'var(--glass-outer)', color: 'var(--text-secondary)' }}>
               {activeTab === 'view' ? 'My Schedule' : activeTab === 'edit' ? 'Schedule Management' : activeTab === 'analyze' ? 'Schedule Analysis' : 'Academic Calendar'}
@@ -673,7 +673,7 @@ const Dashboard: React.FC = () => {
 
         {/* 학급 선택 시 헤더 배지 */}
         {activeTab === 'view' && selectedClass !== 'none' && (
-          <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
+          <div className="mobile-header-padding" style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
             <span style={{ whiteSpace: 'nowrap', flexShrink: 0, background: 'rgba(139,233,253,0.15)', border: '1px solid rgba(139,233,253,0.4)', color: '#8be9fd', borderRadius: '9999px', padding: '6px 16px', fontSize: '0.9rem', fontWeight: 600 }}>
               📚 {selectedClass}반 {selectedStudent !== 'none' ? `${students.find(s => String(s['학번']) === selectedStudent)?.['이름']} ` : ''}주간 시간표
             </span>
@@ -686,13 +686,13 @@ const Dashboard: React.FC = () => {
           </div>
         )}
 
-        <div className="double-bezel-outer">
-          <div className="double-bezel-inner" style={{ minHeight: '600px', overflowX: 'auto', padding: '40px' }}>
+        <div className={`double-bezel-outer ${activeTab === 'view' ? 'mobile-edge' : ''}`}>
+          <div className={`double-bezel-inner ${activeTab === 'view' ? 'mobile-edge-inner' : ''}`} style={{ minHeight: '600px', overflowX: 'auto', padding: '40px' }}>
 
             {loading ? (
               <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '100px' }}>데이터를 불러오는 중입니다...</div>
             ) : activeTab === 'view' ? (
-              <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '8px' }}>
+              <table className="schedule-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '8px' }}>
                 <thead>
                   <tr>
                     <th style={{ padding: '16px', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', width: '80px' }}>날짜</th>

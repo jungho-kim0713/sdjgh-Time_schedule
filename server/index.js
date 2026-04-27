@@ -282,6 +282,18 @@ app.post('/api/auth/google', async (req, res) => {
     }
 });
 
+// 임시: 일반 로그인 (시범용, 누구나 업무담당자로 접속)
+app.post('/api/auth/local', (req, res) => {
+    const email = 'demo@test.com';
+    const name = '시범 교사';
+    const role = '업무담당자';
+    const status = 'Active';
+
+    const token = jwt.sign({ email, name, role }, process.env.JWT_SECRET || 'super_secret_schedule_key_2026', { expiresIn: '7d' });
+    return res.json({ success: true, token, user: { email, name, role, status } });
+});
+
+
 // ─── 프로덕션: React 빌드 파일 서빙 ──────────────────────────────────────────
 const path = require('path');
 const fs = require('fs');
