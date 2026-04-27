@@ -22,7 +22,7 @@
 }
 
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -35,7 +35,7 @@ body {
   display: flex;
   flex-direction: column;
   line-height: 1.5;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Double-Bezel Card Architecture ($150k style) */

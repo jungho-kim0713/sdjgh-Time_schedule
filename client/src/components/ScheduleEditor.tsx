@@ -96,10 +96,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                  baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
              }
              if (actionType === 'exchange' && dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
-                 const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
-                 if (sInfo) {
-                     baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: '이동(IN)', _previewAdded: true });
-                 }
+                 baseList.push({ 강좌코드: previewTgt.courseCode, isOverride: true, status: '이동(IN)', _previewAdded: true });
              } else if (actionType === 'realMakeup') {
                  if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
                      baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
@@ -118,7 +115,10 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                      baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
                  }
                  if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
-                     baseList.push({ 강좌코드: previewTgt.courseCode, isOverride: true, status: '이동(IN)', _previewAdded: true });
+                     const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
+                     if (sInfo) {
+                         baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: '이동(IN)', _previewAdded: true });
+                     }
                  }
              } else if (actionType === 'realMakeup') {
                  if (dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
@@ -488,7 +488,10 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
      try {
          const response = await fetch('/api/schedule/update', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
+             headers: { 
+                 'Content-Type': 'application/json',
+                 'Authorization': `Bearer ${localStorage.getItem('token')}`
+             },
              body: JSON.stringify({ payloads })
          });
          const data = await response.json();
@@ -542,7 +545,10 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
      try {
          const response = await fetch('/api/schedule/update', {
              method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
+             headers: { 
+                 'Content-Type': 'application/json',
+                 'Authorization': `Bearer ${localStorage.getItem('token')}`
+             },
              body: JSON.stringify({ payloads })
          });
          const data = await response.json();
