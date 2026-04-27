@@ -536,7 +536,7 @@ const Dashboard: React.FC = () => {
         {(userRole === '업무담당자' || userRole === '관리자') && (
           <button onClick={() => setActiveTab('calendar')} style={{ background: activeTab === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'calendar' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>학사일정 관리</button>
         )}
-        {(userRole === '관리자' || userRole === '업무담당자') && (
+        {true && (
           <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 수정</button>
         )}
         {(userRole === '관리자' || userRole === '업무담당자' || userRole === '교사') && (
