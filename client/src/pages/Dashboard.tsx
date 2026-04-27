@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import ScheduleEditor from '../components/ScheduleEditor';
@@ -527,34 +527,35 @@ const Dashboard: React.FC = () => {
     <div style={{ minHeight: '100vh', paddingBottom: '100px' }}>
 
       <nav style={{
-        position: 'sticky', top: '20px', margin: '0 auto', width: 'max-content', display: 'flex', gap: '8px', padding: '8px',
+        position: 'sticky', top: '12px', margin: '0 auto', maxWidth: 'calc(100vw - 24px)', width: 'max-content',
+        display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', justifyContent: 'center',
         background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '9999px', zIndex: 50, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.5)', animation: 'fadeInUp 0.8s'
+        borderRadius: '24px', zIndex: 50, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.5)', animation: 'fadeInUp 0.8s'
       }}>
-        <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 조회</button>
+        <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 조회</button>
         {(userRole === '업무담당자' || userRole === '관리자') && (
-          <button onClick={() => setActiveTab('calendar')} style={{ background: activeTab === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'calendar' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>학사일정 관리</button>
+          <button onClick={() => setActiveTab('calendar')} style={{ background: activeTab === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'calendar' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>학사일정 관리</button>
         )}
         {userRole !== '학생' && (
-          <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 수정</button>
+          <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 수정</button>
         )}
         {userRole !== '학생' && (
-          <button onClick={() => setActiveTab('analyze')} style={{ background: activeTab === 'analyze' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'analyze' ? 'white' : 'var(--text-secondary)', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>시간표 분석</button>
+          <button onClick={() => setActiveTab('analyze')} style={{ background: activeTab === 'analyze' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'analyze' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 분석</button>
         )}
         {userRole === '관리자' && (
-          <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)', minWidth: '120px' }}>사용자 관리</button>
+          <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>사용자 관리</button>
         )}
-        <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }} style={{ background: 'transparent', color: '#ff5555', padding: '10px 24px', borderRadius: '9999px', transition: 'var(--transition-spring)' }}>로그아웃</button>
+        <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }} style={{ background: 'transparent', color: '#ff5555', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>로그아웃</button>
       </nav>
 
-      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: '60px 40px' }} className="animate-fade-in">
+      <main style={{ maxWidth: '1400px', margin: '0 auto', padding: 'clamp(24px, 5vw, 60px) clamp(12px, 4vw, 40px)', width: '100%' }} className="animate-fade-in">
 
-        <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ marginBottom: '40px', display: 'flex', flexWrap: 'wrap', gap: '20px', justifyContent: 'space-between', alignItems: 'flex-end' }}>
           <div>
             <span style={{ borderRadius: '9999px', padding: '6px 12px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600, background: 'var(--glass-outer)', color: 'var(--text-secondary)' }}>
               {activeTab === 'view' ? 'My Schedule' : activeTab === 'edit' ? 'Schedule Management' : activeTab === 'analyze' ? 'Schedule Analysis' : 'Academic Calendar'}
             </span>
-            <h1 style={{ fontSize: '3.5rem', fontWeight: 600, marginTop: '20px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+            <h1 style={{ fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 600, marginTop: '20px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
               {activeTab === 'view' ? '시간표 조회' : activeTab === 'edit' ? '시간표 수정' : activeTab === 'analyze' ? '시간표 분석' : '학사일정 관리'}
             </h1>
           </div>

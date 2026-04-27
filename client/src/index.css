@@ -21,6 +21,10 @@
   word-break: keep-all; /* 한국어 타이포그래피 표준 */
 }
 
+html {
+  overflow-x: hidden;
+}
+
 body {
   font-family: 'Pretendard', sans-serif;
   background-color: var(--bg-gradient-start);
@@ -31,6 +35,7 @@ body {
   display: flex;
   flex-direction: column;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 /* Double-Bezel Card Architecture ($150k style) */
