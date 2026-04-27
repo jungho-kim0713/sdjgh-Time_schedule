@@ -786,12 +786,12 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                 onClick={e => e.stopPropagation()}>
 
               {/* 고정 헤더 */}
-              <div style={{ flexShrink: 0, padding: '40px 40px 0' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                   <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 600 }}>주간 시간표 변경 시뮬레이션</h2>
-                   <button onClick={() => setPreviewTarget(null)} style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 20px', borderRadius: '12px', cursor: 'pointer', fontWeight: 600, transition: 'var(--transition-spring)' }}>취소</button>
+              <div style={{ flexShrink: 0, padding: '24px 32px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                   <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600, whiteSpace: 'nowrap' }}>주간 시간표 변경 시뮬레이션</h2>
+                   <button onClick={() => setPreviewTarget(null)} style={{ width: 'auto', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '8px 20px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', transition: 'var(--transition-spring)' }}>취소</button>
                 </div>
-                <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px' }}>선택하신 알고리즘(<b>{previewTarget.status}</b>) 적용 시 변경되는 두 선생님의 주간 시간표입니다. (블록으로 표시된 부분이 변경 사항입니다.)</p>
+                <p style={{ color: 'var(--text-secondary)', margin: '0 0 16px', fontSize: '0.9rem' }}>선택하신 알고리즘(<b>{previewTarget.status}</b>) 적용 시 변경되는 두 선생님의 주간 시간표입니다. (블록으로 표시된 부분이 변경 사항입니다.)</p>
               </div>
 
               {/* 스크롤 가능한 시간표 영역 */}
@@ -950,16 +950,16 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
               </div>{/* 스크롤 영역 끝 */}
 
               {/* 고정 푸터: 사유 입력 및 확인 버튼 */}
-              <div style={{ flexShrink: 0, padding: '0 40px 40px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', background: 'rgba(255,255,255,0.05)', padding: '24px', borderRadius: '16px' }}>
-                   <div style={{ width: '100%' }}>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>적용 사유 (예: 연가, 결보강 등)</label>
+              <div style={{ flexShrink: 0, padding: '0 32px 24px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', background: 'rgba(255,255,255,0.05)', padding: '16px 24px', borderRadius: '12px' }}>
+                   <div style={{ flex: 1 }}>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>적용 사유 (예: 연가, 결보강 등)</label>
                       <input type="text" value={previewReason} onChange={(e) => setPreviewReason(e.target.value)}
-                             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '16px 20px', borderRadius: '12px', fontSize: '1.1rem', outline: 'none' }}
+                             style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 16px', borderRadius: '8px', fontSize: '1rem', outline: 'none', margin: 0 }}
                              placeholder="사유를 입력하세요" autoFocus />
                    </div>
                    <button onClick={handleConfirmApply}
-                           style={{ width: '100%', background: 'white', color: 'black', border: 'none', padding: '16px', borderRadius: '12px', fontWeight: 600, fontSize: '1.1rem', cursor: 'pointer', transition: 'transform 0.2s' }}
+                           style={{ width: 'auto', whiteSpace: 'nowrap', background: 'white', color: 'black', border: 'none', padding: '0 32px', height: '46px', borderRadius: '8px', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', transition: 'transform 0.2s' }}
                            onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
                            onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
                       변경 시간표 확정 적용하기
