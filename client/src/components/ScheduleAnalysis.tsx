@@ -260,7 +260,7 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
               </span>
             </h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '6px 0 0' }}>
-              {analyzedRange?.start} ~ {analyzedRange?.end}
+              {analyzedRange?.start} ({getDayString(analyzedRange?.start || '')}) ~ {analyzedRange?.end} ({getDayString(analyzedRange?.end || '')})
             </p>
           </div>
           {sortedResults.length > 0 && (
@@ -383,7 +383,7 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
                 </span>
               </h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '6px 0 0' }}>
-                {analyzedRange?.start} ~ {analyzedRange?.end}
+                {analyzedRange?.start} ({getDayString(analyzedRange?.start || '')}) ~ {analyzedRange?.end} ({getDayString(analyzedRange?.end || '')})
               </p>
             </div>
           </div>

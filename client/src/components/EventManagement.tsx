@@ -6,6 +6,11 @@ interface Props {
   onUpdate: () => void;
 }
 
+const getDayString = (dateStr: string): string => {
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return days[new Date(dateStr).getDay()];
+};
+
 const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
   const [targetDate, setTargetDate] = useState(new Date().toISOString().split('T')[0]);
   const [startPeriod, setStartPeriod] = useState('1');
@@ -42,7 +47,7 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
       return;
     }
 
-    if (!window.confirm(`${targetDate} ${s}교시~${e}교시에 [${reason}] 행사를 등록하시겠습니까?`)) return;
+    if (!window.confirm(`${targetDate} (${getDayString(targetDate)}) ${s}교시~${e}교시에 [${reason}] 행사를 등록하시겠습니까?`)) return;
 
     setLoading(true);
     const payloads = [];
@@ -72,7 +77,7 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
   };
 
   const handleCancel = async (event: any) => {
-    if (!window.confirm(`${event['날짜']} ${event['교시']}교시 [${event['사유']}] 행사를 취소하시겠습니까?`)) return;
+    if (!window.confirm(`${event['날짜']} (${getDayString(event['날짜'])}) ${event['교시']}교시 [${event['사유']}] 행사를 취소하시겠습니까?`)) return;
     
     setLoading(true);
     try {
@@ -168,7 +173,7 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
             <tbody>
               {activeEvents.map(e => (
                 <tr key={`${e['날짜']}_${e['교시']}_${e['강좌코드']}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <td style={{ padding: '12px' }}>{e['날짜']}</td>
+                  <td style={{ padding: '12px' }}>{e['날짜']} ({getDayString(e['날짜'])})</td>
                   <td style={{ padding: '12px' }}>{e['교시']}교시</td>
                   <td style={{ padding: '12px' }}>{e['강좌코드'].replace('행사(', '').replace(')', '')}</td>
                   <td style={{ padding: '12px', color: '#ffb86c' }}>{e['사유']}</td>

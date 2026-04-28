@@ -184,7 +184,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                      const myOutTx = dailySchedules?.find(d => d['사유'] === change['사유'] && d['상태'] === '이동(OUT)' && d['원래교사'] === sourceTeacher);
                      let originalTimeSpan = '(시간표 변경)';
                      if (myOutTx) {
-                         originalTimeSpan = `${myOutTx['날짜']} ${myOutTx['교시']}교시`;
+                         originalTimeSpan = `${myOutTx['날짜']} (${getDayString(myOutTx['날짜'])}) ${myOutTx['교시']}교시`;
                      }
 
                      daySchedules.push({
@@ -780,7 +780,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                             </div>
                             {/* 중요: 사용자가 명시한 날짜, 교시, 강좌코드, 상태 필수 표출 */}
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                              <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px'}}>{target.date}</span>
+                              <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px'}}>{target.date} ({getDayString(target.date)})</span>
                               <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px'}}>{target.period}교시</span>
                               <span style={{background:'rgba(255,255,255,0.05)', padding:'2px 8px', borderRadius:'4px', color: '#ffb86c'}}>{target.courseName}</span>
                               <span style={{background: target.status === '자습 전환' ? 'rgba(139,233,253,0.15)' : 'rgba(74, 144, 226, 0.1)', color: target.status === '자습 전환' ? '#8be9fd' : '#8be9fd', padding:'2px 8px', borderRadius:'4px'}}>{target.status}</span>
