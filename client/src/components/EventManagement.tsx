@@ -116,8 +116,14 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: '16px', alignItems: 'end' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>날짜 ({getDayString(targetDate)})</label>
-            <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} style={inputStyle} />
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>날짜</label>
+            <div style={{ ...inputStyle, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
+              <span style={{ fontSize: '0.95rem', color: 'white' }}>
+                {targetDate} <span style={{ color: '#ffb86c' }}>({getDayString(targetDate)})</span>
+              </span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} onClick={(e) => { try { (e.target as any).showPicker(); } catch(err){} }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
