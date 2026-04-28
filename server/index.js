@@ -153,10 +153,10 @@ app.post('/api/schedule/update', authenticateToken, canEditSchedule, async (req,
     }
 });
 
-// 관리자 전용: 캐시 강제 초기화 (구글 시트 직접 수정 후 사용)
-app.post('/api/admin/clear-cache', authenticateToken, isAdmin, (req, res) => {
+// 캐시 강제 초기화 (관리자 및 업무담당자/교사 사용 가능)
+app.post('/api/admin/clear-cache', authenticateToken, canEditSchedule, (req, res) => {
     appCache.del('allSheetData');
-    console.log('🗑️ 관리자 요청으로 캐시가 초기화되었습니다.');
+    console.log('🗑️ 사용자/관리자 요청으로 캐시가 초기화되었습니다.');
     res.json({ success: true, message: '캐시가 초기화되었습니다. 다음 조회 시 구글 시트에서 최신 데이터를 불러옵니다.' });
 });
 

@@ -555,9 +555,29 @@ const Dashboard: React.FC = () => {
             <span style={{ borderRadius: '9999px', padding: '6px 12px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 600, background: 'var(--glass-outer)', color: 'var(--text-secondary)' }}>
               {activeTab === 'view' ? 'My Schedule' : activeTab === 'edit' ? 'Schedule Management' : activeTab === 'analyze' ? 'Schedule Analysis' : 'Academic Calendar'}
             </span>
-            <h1 style={{ fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 600, marginTop: '20px', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              {activeTab === 'view' ? '시간표 조회' : activeTab === 'edit' ? '시간표 수정' : activeTab === 'analyze' ? '시간표 분석' : '학사일정 관리'}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '20px' }}>
+               <h1 style={{ margin: 0, fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                 {activeTab === 'view' ? '시간표 조회' : activeTab === 'edit' ? '시간표 수정' : activeTab === 'analyze' ? '시간표 분석' : '학사일정 관리'}
+               </h1>
+               {activeTab === 'edit' && (
+                 <button 
+                   onClick={async () => {
+                     try {
+                       await axios.post('/api/admin/clear-cache');
+                       fetchData();
+                       alert('캐시가 초기화되고 최신 데이터가 반영되었습니다.');
+                     } catch(err) {
+                       alert('캐시 초기화에 실패했습니다.');
+                     }
+                   }}
+                   style={{ background: 'rgba(255, 85, 85, 0.1)', color: '#ff5555', border: '1px solid rgba(255,85,85,0.3)', padding: '6px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'var(--transition-spring)' }}
+                   onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 85, 85, 0.2)'}
+                   onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 85, 85, 0.1)'}
+                 >
+                   ↻ 캐시 강제 초기화
+                 </button>
+               )}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
