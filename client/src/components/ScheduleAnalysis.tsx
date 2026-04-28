@@ -327,11 +327,11 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '16px', alignItems: 'start', marginBottom: '20px' }}>
           <div>
-            <label style={labelStyle}>시작일</label>
+            <label style={labelStyle}>시작일 ({getDayString(startDate)})</label>
             <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setResults(null); setAllResults(null); }} style={inputStyle} />
           </div>
           <div>
-            <label style={labelStyle}>종료일</label>
+            <label style={labelStyle}>종료일 ({getDayString(endDate)})</label>
             <input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setResults(null); setAllResults(null); }} style={inputStyle} />
           </div>
           <div>

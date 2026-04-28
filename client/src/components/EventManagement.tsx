@@ -116,7 +116,7 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: '16px', alignItems: 'end' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>날짜</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>날짜 ({getDayString(targetDate)})</label>
             <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>

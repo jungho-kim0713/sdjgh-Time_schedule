@@ -599,8 +599,11 @@ const Dashboard: React.FC = () => {
             {activeTab === 'view' && (
                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center' }}>
                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px' }}>기준일(주간)</label>
-                 <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
-                        style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', colorScheme: 'dark' }} />
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                   <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)}
+                          style={{ background: 'transparent', color: 'white', border: 'none', outline: 'none', fontSize: '1rem', fontFamily: 'Pretendard', cursor: 'pointer', colorScheme: 'dark' }} />
+                   <span style={{ fontSize: '0.9rem', color: '#ffb86c' }}>({['일', '월', '화', '수', '목', '금', '토'][new Date(targetDate).getDay()]})</span>
+                 </div>
                </div>
             )}
 

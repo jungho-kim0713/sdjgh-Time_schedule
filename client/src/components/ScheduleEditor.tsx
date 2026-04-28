@@ -604,7 +604,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom:'6px', display:'block' }}>날짜 (Date)</label>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom:'6px', display:'block' }}>날짜 (Date) ({getDayString(selectedDate)})</label>
                 <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)}
                   style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '12px', outline: 'none', marginBottom: 0, colorScheme: 'dark' }}
                 />
