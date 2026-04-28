@@ -42,6 +42,7 @@ const Dashboard: React.FC = () => {
   });
 
   const [selectedCell, setSelectedCell] = useState<any>(null);
+  const [cacheClearing, setCacheClearing] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
@@ -556,25 +557,39 @@ const Dashboard: React.FC = () => {
               {activeTab === 'view' ? 'My Schedule' : activeTab === 'edit' ? 'Schedule Management' : activeTab === 'analyze' ? 'Schedule Analysis' : 'Academic Calendar'}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '20px' }}>
-               <h1 style={{ margin: 0, fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+               <h1 style={{ margin: 0, fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
                  {activeTab === 'view' ? '시간표 조회' : activeTab === 'edit' ? '시간표 수정' : activeTab === 'analyze' ? '시간표 분석' : '학사일정 관리'}
                </h1>
                {activeTab === 'edit' && (
                  <button 
+                   disabled={cacheClearing}
                    onClick={async () => {
+                     setCacheClearing(true);
                      try {
                        await axios.post('/api/admin/clear-cache');
-                       fetchData();
-                       alert('캐시가 초기화되고 최신 데이터가 반영되었습니다.');
+                       await fetchData();
                      } catch(err) {
                        alert('캐시 초기화에 실패했습니다.');
+                     } finally {
+                       setCacheClearing(false);
                      }
                    }}
-                   style={{ background: 'rgba(255, 85, 85, 0.1)', color: '#ff5555', border: '1px solid rgba(255,85,85,0.3)', padding: '6px 14px', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'var(--transition-spring)' }}
-                   onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 85, 85, 0.2)'}
-                   onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 85, 85, 0.1)'}
+                   style={{
+                     padding: '8px 16px',
+                     background: cacheClearing ? 'rgba(255,255,255,0.05)' : 'rgba(255,184,108,0.15)',
+                     color: cacheClearing ? 'var(--text-secondary)' : '#ffb86c',
+                     border: '1px solid rgba(255,184,108,0.3)',
+                     borderRadius: '10px',
+                     cursor: cacheClearing ? 'not-allowed' : 'pointer',
+                     fontWeight: 600,
+                     fontSize: '0.85rem',
+                     whiteSpace: 'nowrap',
+                     transition: 'var(--transition-spring)',
+                     fontFamily: 'Pretendard',
+                     width: 'auto',
+                   }}
                  >
-                   ↻ 캐시 강제 초기화
+                   {cacheClearing ? '⏳ 초기화 중...' : '🔄 캐시 초기화'}
                  </button>
                )}
             </div>
