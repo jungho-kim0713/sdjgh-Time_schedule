@@ -275,11 +275,44 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
         }
     }
 
+    // 특정 교사의 특정 날짜 최신 스케줄 조회 (일별 변동 내역 반영)
+    const getTeacherSchedulesOnDate = (tName: string, tDate: string) => {
+        const dayOfWeek = getDayString(tDate);
+        const tCourses = courses.filter(c => c['담당교사'] === tName).map(c => c['강좌코드']);
+        let schedules = baseSchedules.filter(s => s['요일'] === dayOfWeek && tCourses.includes(s['강좌코드']));
+        
+        const dayChanges = dailySchedules?.filter(d => d['날짜'] === tDate) || [];
+        const statusMap: Record<string, any> = {};
+        dayChanges.forEach(change => {
+            const key = `${change['교시']}_${change['강좌코드']}`;
+            if (change['상태'] === '취소' || change['상태'] === '정상') {
+                delete statusMap[key];
+            } else {
+                statusMap[key] = change;
+            }
+        });
+
+        Object.values(statusMap).forEach(change => {
+            if (change['상태'] === '이동(OUT)') {
+                schedules = schedules.filter(s => !(String(s['교시']) === String(change['교시']) && s['강좌코드'] === change['강좌코드']));
+            } else if (change['상태'] === '이동(IN)') {
+                if (change['변경교사'] === tName) {
+                    const isDup = schedules.some(s => String(s['교시']) === String(change['교시']) && s['강좌코드'] === change['강좌코드']);
+                    if (!isDup) schedules.push({ '요일': dayOfWeek, '교시': change['교시'], '강좌코드': change['강좌코드'] });
+                }
+            } else if (change['원래교사'] === tName && change['변경교사'] !== tName) {
+                schedules = schedules.filter(s => !(String(s['교시']) === String(change['교시']) && s['강좌코드'] === change['강좌코드']));
+            } else if (change['변경교사'] === tName && change['원래교사'] !== tName) {
+                const isDup = schedules.some(s => String(s['교시']) === String(change['교시']) && s['강좌코드'] === change['강좌코드']);
+                if (!isDup) schedules.push({ '요일': dayOfWeek, '교시': change['교시'], '강좌코드': change['강좌코드'] });
+            }
+        });
+        return schedules;
+    };
+
     // 조건 B 검증용 헬퍼: "나(Source교사)"가 특정 날짜 특정 교시에 수업이 있나?
     const amIBusyAt = (testDate: string, period: string) => {
-        const dayOfWeek = getDayString(testDate);
-        const myCourses = courses.filter(c => c['담당교사'] === sourceTeacher).map(c => c['강좌코드']);
-        const mySchedulesOnDay = baseSchedules.filter(s => s['요일'] === dayOfWeek && myCourses.includes(s['강좌코드']));
+        const mySchedulesOnDay = getTeacherSchedulesOnDate(sourceTeacher, testDate);
         return mySchedulesOnDay.some(s => String(s['교시']) === String(period));
     };
 
@@ -346,13 +379,11 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
         teachers.forEach(target => {
            if (target['교사명'] === sourceTeacher) return;
-           const targetCourses = courses.filter(c => c['담당교사'] === target['교사명']).map(c => c['강좌코드']);
-           const targetSchedulesOnDate = baseSchedulesForTargetDay.filter(s => targetCourses.includes(s['강좌코드']));
+           const targetSchedulesOnDate = getTeacherSchedulesOnDate(target['교사명'], sDate);
 
            if (actionType === 'exchange') {
                // 조건 A: 타겟이 "내 원래 스케줄 날짜/시간(selectedDate, selectedPeriod)"에 공강인가?
-               const srcDayOfWeek = getDayString(selectedDate);
-               const targetSchedulesOnSrcDate = baseSchedules.filter(s => s['요일'] === srcDayOfWeek && targetCourses.includes(s['강좌코드']));
+               const targetSchedulesOnSrcDate = getTeacherSchedulesOnDate(target['교사명'], selectedDate);
                const isTargetBusyAtSource = targetSchedulesOnSrcDate.some(s => String(s['교시']) === String(selectedPeriod));
                if (isTargetBusyAtSource) return;
 
