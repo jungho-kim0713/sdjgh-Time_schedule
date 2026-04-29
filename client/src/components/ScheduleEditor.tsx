@@ -631,7 +631,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                 <select value={sourceTeacher} onChange={(e) => setSourceTeacher(e.target.value)}
                   style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '12px', outline: 'none' }}>
                   <option value="all" style={{color: 'black'}}>내 이름(교사)을 선택하세요</option>
-                  {teachers.map(t => <option key={`src-${t['교사ID']}`} value={t['교사명']} style={{color: 'black'}}>{t['교사명']}</option>)}
+                  {[...teachers].sort((a, b) => (a['교사명'] || '').localeCompare(b['교사명'] || '')).map(t => <option key={`src-${t['교사ID']}`} value={t['교사명']} style={{color: 'black'}}>{t['교사명']}</option>)}
                 </select>
               </div>
             </div>
