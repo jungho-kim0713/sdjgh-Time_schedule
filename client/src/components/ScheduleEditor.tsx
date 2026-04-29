@@ -607,7 +607,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                 <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom:'6px', display:'block' }}>날짜 (Date)</label>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', cursor: 'pointer' }}>
                   <span style={{ fontSize: '0.95rem', color: 'white' }}>
-                    {selectedDate} <span style={{ color: '#ffb86c' }}>({getDayString(selectedDate)})</span>
+                    {selectedDate ? `${selectedDate} (${getDayString(selectedDate)})` : '날짜 선택'}
                   </span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                   <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} onClick={(e) => { try { (e.target as any).showPicker(); } catch(err){} }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />

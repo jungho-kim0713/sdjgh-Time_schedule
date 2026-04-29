@@ -330,7 +330,7 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
             <label style={labelStyle}>시작일</label>
             <div style={{ ...inputStyle, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
               <span style={{ fontSize: '0.95rem', color: 'white' }}>
-                {startDate} <span style={{ color: '#ffb86c' }}>({getDayString(startDate)})</span>
+                {startDate ? `${startDate} (${getDayString(startDate)})` : '날짜 선택'}
               </span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               <input type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setResults(null); setAllResults(null); }} onClick={(e) => { try { (e.target as any).showPicker(); } catch(err){} }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />
@@ -340,7 +340,7 @@ const ScheduleAnalysis: React.FC<Props> = ({ courses, baseSchedules, dailySchedu
             <label style={labelStyle}>종료일</label>
             <div style={{ ...inputStyle, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
               <span style={{ fontSize: '0.95rem', color: 'white' }}>
-                {endDate} <span style={{ color: '#ffb86c' }}>({getDayString(endDate)})</span>
+                {endDate ? `${endDate} (${getDayString(endDate)})` : '날짜 선택'}
               </span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               <input type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setResults(null); setAllResults(null); }} onClick={(e) => { try { (e.target as any).showPicker(); } catch(err){} }} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }} />

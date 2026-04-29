@@ -601,7 +601,7 @@ const Dashboard: React.FC = () => {
                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px', pointerEvents: 'none' }}>기준일(주간)</label>
                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', pointerEvents: 'none' }}>
                    <span style={{ fontSize: '1rem', color: 'white', fontFamily: 'Pretendard' }}>
-                     {targetDate} <span style={{ color: '#ffb86c' }}>({['일', '월', '화', '수', '목', '금', '토'][new Date(targetDate).getDay()]})</span>
+                     {targetDate ? `${targetDate} (${['일', '월', '화', '수', '목', '금', '토'][new Date(targetDate).getDay()]})` : '날짜 선택'}
                    </span>
                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
