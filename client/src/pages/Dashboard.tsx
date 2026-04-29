@@ -65,7 +65,7 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const fetchData = () => {
-    axios.get('/api/data')
+    axios.get(`/api/data?t=${new Date().getTime()}`)
       .then(res => {
         if(res.data.success) {
           setScheduleData(res.data.data.baseSchedules || []);

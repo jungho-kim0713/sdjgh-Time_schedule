@@ -250,6 +250,11 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
       return [{ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule2['\uac15\uc88c\ucf54\ub4dc'], courseName: sCourseName, teacherName: '(\uc5c6\uc74c)', status: '\uc790\uc2b5 \uc804\ud658' }];
     }
     const sourceCourseInfo = courses.find(c => c['강좌코드'] === sourceSchedule['강좌코드']);
+    
+    // 분할 학급 수업 교체 방지
+    const isSourceSplit = sourceCourseInfo && sourceCourseInfo['분할여부'] === 'Y';
+    if (actionType === 'exchange' && isSourceSplit) return [];
+
     const sourceTeacherObj = teachers.find(t => t['교사명'] === sourceTeacher);
     const sourceDept = sourceTeacherObj?.['교과'] || '';
     const sourceClassInfo = extractClassInfo(sourceSchedule['강좌코드']);
@@ -644,7 +649,12 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                        const isSelected = selectedPeriod === schedule['교시'];
                        return (
                          <div key={`src-sch-${idx}`} 
-                              onClick={() => setSelectedPeriod(schedule['교시'])}
+                              onClick={() => {
+                                setSelectedPeriod(schedule['교시']);
+                                if (courseInfo?.['분할여부'] === 'Y' && actionType === 'exchange') {
+                                  setActionType('makeup');
+                                }
+                              }}
                               style={{ padding: '20px', background: isSelected ? 'rgba(74, 144, 226, 0.2)' : 'rgba(255,255,255,0.03)', border: isSelected ? '1px solid var(--accent)' : '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', cursor: 'pointer', transition: 'var(--transition-spring)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -654,6 +664,11 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                                   <span style={{color: '#ffb86c'}}>{schedule['강좌코드'].split(' ')[0]}</span> 
                                   {courseInfo?.['대상학년'] ? ` · ${courseInfo['대상학년']}학년` : ''}
+                                  {courseInfo?.['분할여부'] === 'Y' && (
+                                      <span style={{ marginLeft: '8px', padding: '2px 6px', background: 'rgba(255,100,100,0.2)', color: '#ff7777', borderRadius: '4px', fontSize: '0.75rem' }}>
+                                        분할수업
+                                      </span>
+                                  )}
                                </div>
 
                                {schedule.isOverride && (
@@ -722,7 +737,9 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
           <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center' }}>수정 상태 선택</label>
           <select value={actionType} onChange={(e) => setActionType(e.target.value)}
                   style={{ background:'rgba(255,255,255,0.1)', color:'white', border:'1px solid rgba(255,255,255,0.2)', padding:'10px 12px', borderRadius:'12px', fontSize:'0.9rem', outline:'none', textAlign:'center', cursor:'pointer' }}>
-            <option value="exchange" style={{color:'black'}}>수업 교체</option>
+            <option value="exchange" style={{color:'black'}} disabled={Boolean(selectedPeriod && courses.find(c => c['강좌코드'] === sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod))?.['강좌코드'])?.['분할여부'] === 'Y')}>
+              수업 교체 {selectedPeriod && courses.find(c => c['강좌코드'] === sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod))?.['강좌코드'])?.['분할여부'] === 'Y' ? '(분할수업 불가)' : ''}
+            </option>
             <option value="makeup" style={{color:'black'}}>수업 대강</option>
             <option value="realMakeup" style={{color:'black'}}>수업 보강</option>
             <option value="selfStudy" style={{color:'black'}}>수업 자습</option>
