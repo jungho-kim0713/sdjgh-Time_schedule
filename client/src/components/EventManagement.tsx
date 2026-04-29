@@ -104,7 +104,7 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
   const inputStyle: React.CSSProperties = {
     background: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid rgba(255,255,255,0.15)',
     padding: '10px 14px', borderRadius: '8px', outline: 'none', fontSize: '0.95rem', fontFamily: 'Pretendard',
-    colorScheme: 'dark', boxSizing: 'border-box', height: '42px'
+    colorScheme: 'dark', boxSizing: 'border-box', height: '42px', margin: 0, width: '100%'
   };
 
   return (
@@ -114,7 +114,7 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
         <h2 style={{ marginTop: 0, fontSize: '1.5rem', fontWeight: 600, color: 'white' }}>행사 및 학사일정 등록</h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>지정된 날짜와 교시의 모든 수업을 행사로 대체합니다.</p>
         
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: '16px', alignItems: 'end' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1.5fr', gap: '16px', alignItems: 'start' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>날짜</label>
             <div style={{ ...inputStyle, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', cursor: 'pointer' }}>
