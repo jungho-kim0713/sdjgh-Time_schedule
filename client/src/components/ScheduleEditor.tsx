@@ -235,9 +235,12 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
   // 중앙 필터옵션에 따른 우측 자동 추천 타겟 계산
   const getTargetList = () => {
     if (!selectedPeriod || !selectedDate) return [];
-    const sourceSchedule = sourceSchedules.find(s => s['교시'] === selectedPeriod);
+    const sourceSchedule = sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod));
     if (!sourceSchedule) return [];
 
+    // 합반 교체 방지 (원본 수업 검사)
+    const isSourceCombined = sourceSchedules.filter(s => String(s['교시']) === String(selectedPeriod)).length > 1;
+    if (actionType === 'exchange' && isSourceCombined) return [];
 
     // uc218uc5c5 uc790uc2b5: ub300uc0c1 uc120uc0ddub2d8 uc5c6uc774 ud574ub2f9 uc218uc5c5uc744 uc790uc2b5uc73cub85c uc804ud658
     if (actionType === 'selfStudy') {
@@ -389,6 +392,10 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
                // 타겟의 "sDate" (탐색일) 스케줄을 돌면서 교환 가능한 대상 수업을 찾는다.
                targetSchedulesOnDate.forEach(tSch => {
+                   // 합반 검사 (타겟 수업이 합반이면 교체 불가)
+                   const isTargetCombined = targetSchedulesOnDate.filter(s => String(s['교시']) === String(tSch['교시'])).length > 1;
+                   if (isTargetCombined) return;
+
                    // 클레스 매칭 검사
                    const tSchClassInfo = extractClassInfo(tSch['강좌코드']);
                    if (sourceClassInfo && tSchClassInfo !== sourceClassInfo) return; 
