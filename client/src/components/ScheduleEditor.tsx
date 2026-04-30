@@ -590,7 +590,15 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
         payloads.push({ date: selectedDate, period: pairChange['교시'], courseCode: pairChange['강좌코드'], sourceTeacher: sourceTeacher, targetTeacher: schedule.originalTeacher, status: '취소', reason: '교체 양방향 쌍 취소' });
       }
     } else {
-      payloads.push({ date: selectedDate, period: schedule['교시'], courseCode: schedule['강좌코드'], sourceTeacher: schedule.originalTeacher, targetTeacher: sourceTeacher, status: '취소', reason: '사용자 요청 취소' });
+      // 합반(복수 학급) 동시 취소 처리
+      const peers = sourceSchedules.filter(s => String(s['교시']) === String(schedule['교시']) && s.isOverride);
+      if (peers.length > 0) {
+        peers.forEach(p => {
+          payloads.push({ date: selectedDate, period: p['교시'], courseCode: p['강좌코드'], sourceTeacher: p.originalTeacher, targetTeacher: sourceTeacher, status: '취소', reason: '사용자 요청 취소' });
+        });
+      } else {
+        payloads.push({ date: selectedDate, period: schedule['교시'], courseCode: schedule['강좌코드'], sourceTeacher: schedule.originalTeacher, targetTeacher: sourceTeacher, status: '취소', reason: '사용자 요청 취소' });
+      }
     }
 
     try {
@@ -639,7 +647,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                 <select value={sourceTeacher} onChange={(e) => setSourceTeacher(e.target.value)}
                   style={{ width: '100%', background: 'rgba(0,0,0,0.2)', color: 'white', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', borderRadius: '12px', outline: 'none' }}>
                   <option value="all" style={{ color: 'black' }}>내 이름(교사)을 선택하세요</option>
-                  {teachers.map(t => <option key={`src-${t['교사ID']}`} value={t['교사명']} style={{ color: 'black' }}>{t['교사명']}</option>)}
+                  {[...teachers].sort((a, b) => (a['교사명'] || '').localeCompare(b['교사명'] || '')).map(t => <option key={`src-${t['교사ID']}`} value={t['교사명']} style={{ color: 'black' }}>{t['교사명']}</option>)}
                 </select>
               </div>
             </div>
