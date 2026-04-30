@@ -97,7 +97,7 @@ app.get('/api/data', authenticateToken, async (req, res) => {
             // 사용자_관리는 마스터 시트에서 별도 조회
             sheets.spreadsheets.values.get({
                 spreadsheetId: MASTER_SPREADSHEET_ID,
-                range: "'사용자_관리'!A:F"
+                range: "'사용자_관리'!A:I"
             })
         ]);
 
@@ -168,17 +168,17 @@ app.post('/api/users/update', authenticateToken, isAdmin, async (req, res) => {
         // 1. 마스터 시트에서 사용자_관리 데이터 가져오기
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: MASTER_SPREADSHEET_ID,
-            range: "'사용자_관리'!A:F"
+            range: "'사용자_관리'!A:I"
         });
         const rows = response.data.values;
         if (!rows || rows.length === 0) {
             return res.status(404).json({ success: false, message: '사용자 데이터를 찾을 수 없습니다.' });
         }
 
-        // 2. 이메일(A열) 기반으로 해당 사용자의 행(Row) 번호 찾기 (헤더가 1행이므로 +1)
+        // 2. 이메일(A열) 또는 일반ID(B열) 기반으로 해당 사용자의 행(Row) 번호 찾기 (헤더가 1행이므로 +1)
         let targetRowIndex = -1;
         for (let i = 1; i < rows.length; i++) {
-            if (rows[i][0] === email) {
+            if (rows[i][0] === email || rows[i][1] === email) {
                 targetRowIndex = i + 1; 
                 break;
             }
@@ -188,17 +188,17 @@ app.post('/api/users/update', authenticateToken, isAdmin, async (req, res) => {
              return res.status(404).json({ success: false, message: '해당 이메일의 사용자가 시트에 존재하지 않습니다.' });
         }
 
-        // 3. 업데이트할 행 데이터 복사 및 수정 (최대 6열)
+        // 3. 업데이트할 행 데이터 복사 및 수정 (최대 9열)
         const currentRowData = [...rows[targetRowIndex - 1]]; 
-        while(currentRowData.length < 6) currentRowData.push('');
+        while(currentRowData.length < 9) currentRowData.push('');
         
-        currentRowData[3] = role;   // D열: 권한
-        currentRowData[4] = status; // E열: 상태
+        currentRowData[5] = role;   // F열: 권한
+        currentRowData[6] = status; // G열: 상태
 
         // 4. 마스터 시트 해당 행 업데이트
         await sheets.spreadsheets.values.update({
             spreadsheetId: MASTER_SPREADSHEET_ID,
-            range: `'사용자_관리'!A${targetRowIndex}:F${targetRowIndex}`,
+            range: `'사용자_관리'!A${targetRowIndex}:I${targetRowIndex}`,
             valueInputOption: "USER_ENTERED",
             resource: { values: [currentRowData] }
         });
@@ -236,7 +236,7 @@ app.post('/api/auth/google', async (req, res) => {
         // 마스터 시트에서 사용자 확인
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: MASTER_SPREADSHEET_ID,
-            range: "'사용자_관리'!A:F"
+            range: "'사용자_관리'!A:I"
         });
         const rows = response.data.values || [];
         
@@ -249,25 +249,31 @@ app.post('/api/auth/google', async (req, res) => {
         }
         
         if (userRow) {
-            const role = (userRow[3] || 'User').trim();
-            const status = (userRow[4] || 'Pending').trim();
+            const role = (userRow[5] || '학생').trim(); // F열
+            const status = (userRow[6] || 'Pending').trim(); // G열
+            const identifier = userRow[4] || ''; // E열
             
             if (status === 'Pending') {
                 return res.json({ success: false, status: 'Pending', message: '가입 승인 대기 중입니다. 관리자에게 문의하세요.' });
             }
+            if (status === 'Inactive') {
+                return res.status(403).json({ success: false, message: '정지된 계정입니다. 관리자에게 문의하세요.' });
+            }
             
-            // Active 유저라면 JWT 발급
-            const token = jwt.sign({ email, name, role }, JWT_SECRET, { expiresIn: '7d' });
-            return res.json({ success: true, token, user: { email, name, role, status } });
+            // Active 유저라면 JWT 발급 (이름은 DB의 이름 우선)
+            const userName = userRow[3] || name;
+            const token = jwt.sign({ email, name: userName, role, identifier }, JWT_SECRET, { expiresIn: '7d' });
+            return res.json({ success: true, token, user: { email, name: userName, role, status, identifier } });
             
         } else {
-            // 미가입 유저 -> 마스터 시트에 Pending으로 추가
+            // 미가입 유저 -> 마스터 시트에 Pending으로 추가 (A~I열)
+            // A:구글계정, B:일반ID, C:비밀번호, D:이름, E:고유식별자, F:권한, G:상태, H:가입일시, I:비번변경필요
             const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
             await sheets.spreadsheets.values.append({
                 spreadsheetId: MASTER_SPREADSHEET_ID,
-                range: "'사용자_관리'!A:F",
+                range: "'사용자_관리'!A:I",
                 valueInputOption: "USER_ENTERED",
-                resource: { values: [[email, name, '', '학생', 'Pending', now]] }
+                resource: { values: [[email, '', '', name, '', '학생', 'Pending', now, 'FALSE']] }
             });
             
             // 🌟 사용자가 새로 등록되었으므로 캐시 초기화
@@ -282,15 +288,48 @@ app.post('/api/auth/google', async (req, res) => {
     }
 });
 
-// 임시: 일반 로그인 (시범용, 누구나 업무담당자로 접속)
-app.post('/api/auth/local', (req, res) => {
-    const email = 'demo@test.com';
-    const name = '시범 교사';
-    const role = '업무담당자';
-    const status = 'Active';
+// 일반 로그인 (B열 아이디, C열 비밀번호 검증)
+app.post('/api/auth/local', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ success: false, message: '아이디와 비밀번호를 입력해주세요.' });
 
-    const token = jwt.sign({ email, name, role }, process.env.JWT_SECRET || 'super_secret_schedule_key_2026', { expiresIn: '7d' });
-    return res.json({ success: true, token, user: { email, name, role, status } });
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: MASTER_SPREADSHEET_ID,
+            range: "'사용자_관리'!A:I"
+        });
+        const rows = response.data.values || [];
+        
+        let userRow = null;
+        for(let i = 1; i < rows.length; i++) {
+            if(rows[i][1] === username) { // B열(일반ID) 검증
+                userRow = rows[i];
+                break;
+            }
+        }
+
+        if (!userRow) return res.status(401).json({ success: false, message: '등록되지 않은 아이디입니다.' });
+
+        const sheetPassword = userRow[2] || '';
+        if (sheetPassword !== password) return res.status(401).json({ success: false, message: '비밀번호가 일치하지 않습니다.' });
+
+        const email = userRow[0] || '';
+        const name = userRow[3] || username;
+        const identifier = userRow[4] || '';
+        const role = (userRow[5] || '학생').trim();
+        const status = (userRow[6] || 'Pending').trim();
+        const requirePasswordChange = (userRow[8] || '').trim().toUpperCase() === 'TRUE';
+
+        if (status === 'Pending') return res.json({ success: false, status: 'Pending', message: '가입 승인 대기 중입니다. 관리자에게 문의하세요.' });
+        if (status === 'Inactive') return res.status(403).json({ success: false, message: '정지된 계정입니다.' });
+
+        const token = jwt.sign({ email, name, role, identifier, localId: username }, JWT_SECRET, { expiresIn: '7d' });
+        return res.json({ success: true, token, user: { email, name, role, status, identifier, requirePasswordChange } });
+        
+    } catch (err) {
+        console.error('일반 로그인 에러:', err);
+        res.status(500).json({ success: false, message: '서버 에러가 발생했습니다.' });
+    }
 });
 
 

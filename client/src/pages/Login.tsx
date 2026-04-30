@@ -6,6 +6,8 @@ import '../index.css';
 
 const Login: React.FC = () => {
   const [loginMethod, setLoginMethod] = useState<'google' | 'local'>('google');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
@@ -92,21 +94,27 @@ const Login: React.FC = () => {
             ) : (
               <form onSubmit={async (e) => { 
                 e.preventDefault(); 
+                if (!username || !password) return alert('아이디와 비밀번호를 입력해주세요.');
                 try {
-                  const res = await axios.post('/api/auth/local');
+                  const res = await axios.post('/api/auth/local', { username, password });
                   if (res.data.success) {
                     localStorage.setItem('token', res.data.token);
                     localStorage.setItem('user', JSON.stringify(res.data.user));
-                    alert(`${res.data.user.name}님 환영합니다! (업무담당자 모드)`);
+                    
+                    if (res.data.user.requirePasswordChange) {
+                        alert('비밀번호 변경이 필요합니다. (비밀번호 변경 기능은 추후 제공됩니다.)');
+                    } else {
+                        alert(`${res.data.user.name}님 환영합니다!`);
+                    }
                     navigate('/dashboard');
                   }
-                } catch (err) {
+                } catch (err: any) {
                   console.error(err);
-                  alert('일반 로그인 처리 중 오류가 발생했습니다.');
+                  alert(err.response?.data?.message || '일반 로그인 처리 중 오류가 발생했습니다.');
                 }
               }} style={{ display: 'flex', flexDirection: 'column', animation: 'fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards' }}>
-                <input type="text" placeholder="아이디 (또는 교직원 번호)" />
-                <input type="password" placeholder="비밀번호" />
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="아이디 (일반ID)" />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="비밀번호" />
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px', fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '0 4px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                     <input type="checkbox" style={{ width: 'auto', marginBottom: 0, accentColor: 'white' }} /> 로그인 유지
