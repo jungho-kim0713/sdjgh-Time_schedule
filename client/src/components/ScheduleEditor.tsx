@@ -91,24 +91,24 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
     // 2. 가상 적용 (Preview)
     if (isPreview && previewTgt) {
+      const sInfos = sourceSchedules.filter(s => String(s['교시']) === String(selectedPeriod));
+
       if (teacherName === sourceTeacher) {
         if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
           baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
         }
         if (actionType === 'exchange' && dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
-          const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
-          if (sInfo) {
+          sInfos.forEach(sInfo => {
             baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: '이동(IN)', _previewAdded: true });
-          }
+          });
         } else if (actionType === 'realMakeup') {
           if (dateStr === selectedDate && String(period) === String(selectedPeriod)) {
             baseList = baseList.map(b => ({ ...b, _previewRemoved: true }));
           }
           if (dateStr === previewTgt.date && String(period) === String(previewTgt.period)) {
-            const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
-            if (sInfo) {
+            sInfos.forEach(sInfo => {
               baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: '보강', _previewAdded: true });
-            }
+            });
           }
         }
       }
@@ -130,11 +130,10 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
               // 통합: 대상 교사의 기존 수업에 원본 학급 학생이 합류 → 기존 수업을 통합 표시로 변경
               baseList = baseList.map(b => ({ ...b, isOverride: true, status: '통합', _previewAdded: true }));
             } else {
-              const sInfo = sourceSchedules.find(s => s['교시'] === selectedPeriod);
-              if (sInfo) {
+              sInfos.forEach(sInfo => {
                 const statusText = actionType === 'makeup' ? '대강' : '자습';
                 baseList.push({ 강좌코드: sInfo['강좌코드'], isOverride: true, status: statusText, _previewAdded: true });
-              }
+              });
             }
           }
         }
@@ -238,9 +237,9 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
     const sourceSchedule = sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod));
     if (!sourceSchedule) return [];
 
-    // 합반(복수 학급) 수업 전체 액션 차단
+    // 합반 교체 방지 (원본 수업 검사)
     const isSourceCombined = sourceSchedules.filter(s => String(s['교시']) === String(selectedPeriod)).length > 1;
-    if (isSourceCombined) return [];
+    if (actionType === 'exchange' && isSourceCombined) return [];
 
     // uc218uc5c5 uc790uc2b5: ub300uc0c1 uc120uc0ddub2d8 uc5c6uc774 ud574ub2f9 uc218uc5c5uc744 uc790uc2b5uc73cub85c uc804ud658
     if (actionType === 'selfStudy') {
@@ -493,10 +492,11 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
     const reason = previewReason;
 
     const payloads = [];
-    const sourceSchedule = sourceSchedules.find(s => s['교시'] === selectedPeriod);
+    const sourcesToMove = sourceSchedules.filter(s => String(s['교시']) === String(selectedPeriod));
 
     if (actionType === 'exchange') {
-      // 스왑(시간표 이동) 모드 작동: 1Tx 안에 4개의 행이 들어감. 사유 란에 고유키 생성.
+      // 스왑(시간표 이동) 모드 작동: 교체는 이미 합반이 차단되어 있으므로 sourcesToMove는 1개임
+      const sourceSchedule = sourcesToMove[0];
       const txID = `[교체-${new Date().getTime().toString().slice(-6)}] ${reason}`;
 
       // 1. 내 현재 수업 자리 비우기
@@ -510,17 +510,25 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
       payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: target.courseCode, sourceTeacher: '', targetTeacher: target.teacherName, status: '이동(IN)', reason: txID });
 
     } else if (actionType === 'makeup') {
-      payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '대강', reason });
+      sourcesToMove.forEach(src => {
+        payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: src['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '대강', reason });
+      });
     } else if (actionType === 'selfStudy') {
-      payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['\uac15\uc88c\ucf54\ub4dc'], sourceTeacher, targetTeacher: '', status: '\uc790\uc2b5', reason });
+      sourcesToMove.forEach(src => {
+        payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: src['강좌코드'], sourceTeacher, targetTeacher: '', status: '자습', reason });
+      });
     } else if (actionType === 'merge') {
-      payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '통합', reason });
+      sourcesToMove.forEach(src => {
+        payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: src['강좌코드'], sourceTeacher, targetTeacher: target.teacherName, status: '통합', reason });
+      });
     } else if (actionType === 'realMakeup') {
       const txID = `[보강-${new Date().getTime().toString().slice(-6)}] ${reason}`;
-      // 1. 원래 내 수업 시간 비우기 (결손 처리)
-      payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: sourceSchedule['강좌코드'], sourceTeacher, targetTeacher: '', status: '이동(OUT)', reason: txID });
-      // 2. 타겟 시간에 내 수업 추가
-      payloads.push({ date: target.date, period: target.period, courseCode: sourceSchedule['강좌코드'], sourceTeacher: '', targetTeacher: sourceTeacher, status: '이동(IN)', reason: txID });
+      sourcesToMove.forEach(src => {
+        // 1. 원래 내 수업 시간 비우기 (결손 처리)
+        payloads.push({ date: selectedDate, period: selectedPeriod, courseCode: src['강좌코드'], sourceTeacher, targetTeacher: '', status: '이동(OUT)', reason: txID });
+        // 2. 타겟 시간에 내 수업 추가
+        payloads.push({ date: target.date, period: target.period, courseCode: src['강좌코드'], sourceTeacher: '', targetTeacher: sourceTeacher, status: '이동(IN)', reason: txID });
+      });
 
       // 3. 타겟 선생님이 있으면 타겟 선생님의 수업을 타겟 시간에서 뺀다
       if (target.teacherName && target.teacherName !== '비어있음') {
@@ -735,22 +743,16 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
         <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textAlign: 'center' }}>수정 상태 선택</label>
-          {selectedPeriod && sourceSchedules.filter(s => String(s['교시']) === String(selectedPeriod)).length > 1 ? (
-             <div style={{ background: 'rgba(255,100,100,0.1)', border: '1px solid rgba(255,100,100,0.3)', color: '#ff7777', padding: '12px', borderRadius: '12px', fontSize: '0.85rem', textAlign: 'center', lineHeight: '1.4' }}>
-               합반(복수 학급) 수업은 시스템 오류 방지를 위해<br/>시간표 수정이 불가능합니다.
-             </div>
-          ) : (
-             <select value={actionType} onChange={(e) => setActionType(e.target.value)}
-               style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 12px', borderRadius: '12px', fontSize: '0.9rem', outline: 'none', textAlign: 'center', cursor: 'pointer' }}>
-               <option value="exchange" style={{ color: 'black' }} disabled={Boolean(selectedPeriod && courses.find(c => c['강좌코드'] === sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod))?.['강좌코드'])?.['분할여부'] === 'Y')}>
-                 수업 교체 {selectedPeriod && courses.find(c => c['강좌코드'] === sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod))?.['강좌코드'])?.['분할여부'] === 'Y' ? '(분할수업 불가)' : ''}
-               </option>
-               <option value="makeup" style={{ color: 'black' }}>수업 대강</option>
-               <option value="realMakeup" style={{ color: 'black' }}>수업 보강</option>
-               <option value="selfStudy" style={{ color: 'black' }}>수업 자습</option>
-               <option value="merge" style={{ color: 'black' }}>클래스 통합</option>
-             </select>
-          )}
+          <select value={actionType} onChange={(e) => setActionType(e.target.value)}
+            style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '10px 12px', borderRadius: '12px', fontSize: '0.9rem', outline: 'none', textAlign: 'center', cursor: 'pointer' }}>
+            <option value="exchange" style={{ color: 'black' }} disabled={Boolean(selectedPeriod && courses.find(c => c['강좌코드'] === sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod))?.['강좌코드'])?.['분할여부'] === 'Y')}>
+              수업 교체 {selectedPeriod && courses.find(c => c['강좌코드'] === sourceSchedules.find(s => String(s['교시']) === String(selectedPeriod))?.['강좌코드'])?.['분할여부'] === 'Y' ? '(분할수업 불가)' : ''}
+            </option>
+            <option value="makeup" style={{ color: 'black' }}>수업 대강</option>
+            <option value="realMakeup" style={{ color: 'black' }}>수업 보강</option>
+            <option value="selfStudy" style={{ color: 'black' }}>수업 자습</option>
+            <option value="merge" style={{ color: 'black' }}>클래스 통합</option>
+          </select>
         </div>
 
         {/* 대강일 경우 하위 필터 토글 */}
