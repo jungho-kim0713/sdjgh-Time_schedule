@@ -97,7 +97,7 @@ const AdminDashboard: React.FC = () => {
     return users.filter(u =>
       (u['구글 계정'] || '').toLowerCase().includes(q) ||
       (u['이름'] || '').toLowerCase().includes(q) ||
-      (u['교사ID'] || '').toLowerCase().includes(q) ||
+      (u['고유식별자'] || '').toLowerCase().includes(q) ||
       (u['권한'] || '').toLowerCase().includes(q)
     );
   }, [users, searchQuery]);
@@ -166,7 +166,7 @@ const AdminDashboard: React.FC = () => {
           <input
             id="admin-user-search"
             type="text"
-            placeholder="이름, 이메일, 교사ID, 권한으로 검색..."
+            placeholder="이름, 이메일, 고유식별자, 권한으로 검색..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             style={{
@@ -223,7 +223,7 @@ const AdminDashboard: React.FC = () => {
                 <tr>
                   <th style={{ padding: '16px', borderBottom: '2px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)' }}>구글 계정</th>
                   <th style={{ padding: '16px', borderBottom: '2px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)' }}>이름</th>
-                  <th style={{ padding: '16px', borderBottom: '2px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)' }}>교사ID</th>
+                  <th style={{ padding: '16px', borderBottom: '2px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)' }}>고유식별자</th>
                   <th style={{ padding: '16px', borderBottom: '2px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)' }}>권한</th>
                   <th style={{ padding: '16px', borderBottom: '2px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)' }}>상태</th>
                   <th style={{ padding: '16px', borderBottom: '2px solid rgba(255,255,255,0.2)', background:'rgba(255,255,255,0.05)', textAlign: 'center' }}>액션</th>
@@ -231,9 +231,9 @@ const AdminDashboard: React.FC = () => {
               </thead>
               <tbody>
                 {filteredUsers.map((u, idx) => {
-                  const email = u['구글 계정'] || '-';
+                  const email = u['구글 계정'] || u['일반ID'] || '-';
                   const name = u['이름'] || '-';
-                  const tId = u['교사ID'] || '-';
+                  const tId = u['고유식별자'] || '-';
                   const role = u['권한'] || '학생';
                   const status = u['상태'] || 'Pending';
                   const isPending = status === 'Pending';
