@@ -295,19 +295,15 @@ app.post('/api/auth/sso', async (req, res) => {
         if (!token) return res.status(400).json({ success: false, message: 'SSO 토큰이 없습니다.' });
 
         const payload = jwt.verify(token, JWT_SECRET);
-        const { name, uid, role } = payload;
-
-        // managedApp이 명시적으로 설정된 경우에만 timetable 포함 여부 확인
-        // (비어있으면 플랫폼에서 권한 관리 중으로 간주하여 통과)
-        const managedApp = payload.managedApp || '';
-        if (managedApp && !managedApp.split(',').map(s => s.trim()).includes('timetable')) {
-            return res.status(403).json({ success: false, message: '이 앱에 대한 접근 권한이 없습니다.' });
-        }
+        const { name, uid, role, managedApp } = payload;
 
         const identifier = uid || '';
-        // 시간표 앱 규격에 맞는 JWT 재발급
+        // managedApp에 'timetable'이 포함되면 업무담당자 역할 부여, 아니면 플랫폼 role 그대로 사용
+        const apps = (managedApp || '').split(',').map(s => s.trim());
+        const timetableRole = apps.includes('timetable') ? '업무담당자' : role;
+
         const timetableToken = jwt.sign(
-            { name, role, identifier },
+            { name, role: timetableRole, identifier },
             JWT_SECRET,
             { expiresIn: '8h' }
         );
@@ -315,7 +311,7 @@ app.post('/api/auth/sso', async (req, res) => {
         return res.json({
             success: true,
             token: timetableToken,
-            user: { name, role, identifier, status: 'Active' }
+            user: { name, role: timetableRole, identifier, status: 'Active' }
         });
     } catch (e) {
         console.error('SSO 토큰 검증 실패:', e.message);
