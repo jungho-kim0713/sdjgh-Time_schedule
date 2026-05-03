@@ -297,9 +297,10 @@ app.post('/api/auth/sso', async (req, res) => {
         const payload = jwt.verify(token, JWT_SECRET);
         const { name, uid, role } = payload;
 
-        // 플랫폼 JWT의 managedApp 필드에 'timetable'이 포함되어 있는지 확인
+        // managedApp이 명시적으로 설정된 경우에만 timetable 포함 여부 확인
+        // (비어있으면 플랫폼에서 권한 관리 중으로 간주하여 통과)
         const managedApp = payload.managedApp || '';
-        if (!managedApp.split(',').map(s => s.trim()).includes('timetable')) {
+        if (managedApp && !managedApp.split(',').map(s => s.trim()).includes('timetable')) {
             return res.status(403).json({ success: false, message: '이 앱에 대한 접근 권한이 없습니다.' });
         }
 
