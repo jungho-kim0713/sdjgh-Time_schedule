@@ -40,13 +40,13 @@ function isAdmin(req, res, next) {
     }
 }
 
-// 3. 시간표 수정 권한 확인용 미들웨어 (학생 제외)
+// 3. 시간표 확정 적용 권한 확인용 미들웨어 (관리자 · 업무담당자만 가능)
 function canEditSchedule(req, res, next) {
     const role = req.user && req.user.role.trim();
-    if (role && role !== '학생') {
+    if (role === '관리자' || role === '업무담당자') {
         next();
     } else {
-        res.status(403).json({ success: false, message: '시간표 수정 권한이 없습니다.' });
+        res.status(403).json({ success: false, message: '시간표 확정 적용은 업무담당자 이상 권한이 필요합니다.' });
     }
 }
 // ─────────────────────────────────────────────────────────────────────────
