@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { GoogleLogin } from '@react-oauth/google';
@@ -8,7 +8,34 @@ const Login: React.FC = () => {
   const [loginMethod, setLoginMethod] = useState<'google' | 'local'>('google');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [ssoLoading, setSsoLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ssoToken = params.get('token');
+    if (!ssoToken) return;
+
+    // URL에서 token 파라미터 즉시 제거
+    window.history.replaceState({}, '', window.location.pathname);
+    setSsoLoading(true);
+
+    axios.post('/api/auth/sso', { token: ssoToken })
+      .then(res => {
+        if (res.data.success) {
+          localStorage.setItem('token', res.data.token);
+          localStorage.setItem('user', JSON.stringify(res.data.user));
+          navigate('/dashboard');
+        } else {
+          alert(res.data.message || 'SSO 로그인에 실패했습니다.');
+          setSsoLoading(false);
+        }
+      })
+      .catch(err => {
+        alert(err.response?.data?.message || 'SSO 로그인 처리 중 오류가 발생했습니다.');
+        setSsoLoading(false);
+      });
+  }, []);
 
   const handleGoogleSuccess = async (credentialResponse: any) => {
     try {
@@ -31,6 +58,15 @@ const Login: React.FC = () => {
       alert('로그인 처리 중 서버 오류가 발생했습니다.');
     }
   };
+
+  if (ssoLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>플랫폼 인증 처리 중...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', width: '100%', padding: '20px' }}>

@@ -288,6 +288,40 @@ app.post('/api/auth/google', async (req, res) => {
     }
 });
 
+// SSO 토큰 검증 (플랫폼에서 발급한 JWT를 받아 시간표용 JWT로 교환)
+app.post('/api/auth/sso', async (req, res) => {
+    try {
+        const { token } = req.body;
+        if (!token) return res.status(400).json({ success: false, message: 'SSO 토큰이 없습니다.' });
+
+        const payload = jwt.verify(token, JWT_SECRET);
+        const { name, uid, role } = payload;
+
+        // 플랫폼 JWT의 managedApp 필드에 'timetable'이 포함되어 있는지 확인
+        const managedApp = payload.managedApp || '';
+        if (!managedApp.split(',').map(s => s.trim()).includes('timetable')) {
+            return res.status(403).json({ success: false, message: '이 앱에 대한 접근 권한이 없습니다.' });
+        }
+
+        const identifier = uid || '';
+        // 시간표 앱 규격에 맞는 JWT 재발급
+        const timetableToken = jwt.sign(
+            { name, role, identifier },
+            JWT_SECRET,
+            { expiresIn: '8h' }
+        );
+
+        return res.json({
+            success: true,
+            token: timetableToken,
+            user: { name, role, identifier, status: 'Active' }
+        });
+    } catch (e) {
+        console.error('SSO 토큰 검증 실패:', e.message);
+        return res.status(401).json({ success: false, message: '유효하지 않거나 만료된 SSO 토큰입니다.' });
+    }
+});
+
 // 일반 로그인 (B열 아이디, C열 비밀번호 검증)
 app.post('/api/auth/local', async (req, res) => {
     try {
