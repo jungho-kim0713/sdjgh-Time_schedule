@@ -23,7 +23,7 @@ axios.interceptors.response.use(
         alert('로그인이 만료되었거나 권한이 없습니다. 다시 로그인해주세요.');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/';
+        window.location.href = 'https://platform.sdjgh-ai.kr/';
       }
     }
     return Promise.reject(error);

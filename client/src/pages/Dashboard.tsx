@@ -546,7 +546,7 @@ const Dashboard: React.FC = () => {
         {userRole === '관리자' && (
           <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>사용자 관리</button>
         )}
-        <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); navigate('/'); }} style={{ background: 'transparent', color: '#ff5555', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>로그아웃</button>
+        <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); window.location.href = 'https://platform.sdjgh-ai.kr/'; }} style={{ background: 'transparent', color: '#ff5555', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>로그아웃</button>
       </nav>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: 'clamp(24px, 5vw, 60px) clamp(12px, 4vw, 40px)', width: '100%' }} className="animate-fade-in mobile-main">

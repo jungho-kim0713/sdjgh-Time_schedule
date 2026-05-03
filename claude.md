@@ -444,6 +444,8 @@ git push origin main
 ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "cd ~/time-schedule && git pull origin main && cd client && npm install && npm run build && cd ../server && npm install && pm2 restart time-schedule"
 ```
 
+
+
 ---
 
 ## 14. OCI 서버 관리 명령어

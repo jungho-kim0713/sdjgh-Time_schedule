@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//f/f/Kim_Jungho/jungho_webapp/**)"
+    ]
+  }
+}
