@@ -801,7 +801,7 @@ const Dashboard: React.FC = () => {
                 ) : userRole === '학생' ? (
                     <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '100px' }}>시간표 수정 권한이 없습니다.</div>
                 ) : (
-                    <ScheduleEditor courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} teachers={teachers} onUpdate={fetchData} />
+                    <ScheduleEditor courses={courses} baseSchedules={scheduleData} dailySchedules={dailySchedules} teachers={teachers} onUpdate={fetchData} userRole={userRole} />
                 )}
               </div>
             )}

@@ -5,10 +5,11 @@ interface Props {
   baseSchedules: any[];
   dailySchedules?: any[];
   teachers: any[];
-  onUpdate?: () => void; // 부모 데이터 리프레시 함수
+  onUpdate?: () => void;
+  userRole?: string;
 }
 
-const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedules, teachers, onUpdate }) => {
+const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedules, teachers, onUpdate, userRole }) => {
   // 좌측 폼 State (세션 스토리지 연동하여 새로고침 시 유지)
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return sessionStorage.getItem('editor_selectedDate') || '';
@@ -1037,12 +1038,18 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
                     style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(0,0,0,0.3)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '12px 16px', borderRadius: '8px', fontSize: '1rem', outline: 'none', margin: 0 }}
                     placeholder="사유를 입력하세요" autoFocus />
                 </div>
-                <button onClick={handleConfirmApply}
-                  style={{ width: 'auto', whiteSpace: 'nowrap', background: 'white', color: 'black', border: 'none', padding: '0 32px', height: '46px', borderRadius: '8px', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', transition: 'transform 0.2s' }}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
-                  변경 시간표 확정 적용하기
-                </button>
+                {(userRole === '관리자' || userRole === '업무담당자') ? (
+                  <button onClick={handleConfirmApply}
+                    style={{ width: 'auto', whiteSpace: 'nowrap', background: 'white', color: 'black', border: 'none', padding: '0 32px', height: '46px', borderRadius: '8px', fontWeight: 600, fontSize: '1rem', cursor: 'pointer', transition: 'transform 0.2s' }}
+                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+                    onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}>
+                    변경 시간표 확정 적용하기
+                  </button>
+                ) : (
+                  <div style={{ whiteSpace: 'nowrap', padding: '0 24px', height: '46px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    시뮬레이션만 가능 (업무담당자 권한 필요)
+                  </div>
+                )}
               </div>
             </div>
 
