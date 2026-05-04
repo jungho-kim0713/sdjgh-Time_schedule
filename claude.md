@@ -566,14 +566,19 @@ const getSpecialStyle = (code: string) => {
 | 권한값 | 한글명 | 설명 |
 |--------|--------|------|
 | `관리자` | 관리자 | 전체 기능 + 관리자 대시보드 접근 |
-| `업무담당자` | 업무담당자 | 전체 기능 (교사용+학생용 시간표, 시간표 수정) |
-| `교사` | 교사 | 교사용+학생용 시간표 조회, 시간표 수정 |
+| `업무담당자` | 업무담당자 | 시간표 조회 + 시뮬레이션 + **확정 적용** 가능 |
+| `교사` | 교사 | 시간표 조회 + **시뮬레이션만** 가능 (확정 적용 불가) |
 | `학생` | 학생 | 학생용 시간표 조회 (학급 선택) |
+
+**교사 vs 업무담당자 권한 차이 (2026-05-04 확정):**
+- **교사:** `ScheduleEditor`에서 시뮬레이션 팝업까지 볼 수 있으나, `변경 시간표 확정 적용하기` 버튼 비활성 (안내 메시지로 대체)
+- **업무담당자:** 확정 적용 버튼 활성, 실제 DB(일별_시간표)에 변경 내역 기록
+- **서버:** `canEditSchedule` 미들웨어가 `관리자` · `업무담당자`만 `/api/schedule/update` 허용 (교사 포함 나머지는 HTTP 403)
 
 **구현 내용:**
 - `server/index.js` `isAdmin` 미들웨어: `role === '관리자'` 체크
+- `server/index.js` `canEditSchedule` 미들웨어: `role === '관리자' || role === '업무담당자'` 체크
 - 신규 가입 기본 권한: `학생` + 상태: `Pending`
-- 승인 버튼: 항상 `학생` 권한으로 승인 (이후 드롭다운으로 변경 가능)
 - 권한별 배지 색상: 관리자(파랑) / 업무담당자(주황) / 교사(초록) / 학생(보라)
 - Active 사용자는 AdminDashboard 드롭다운으로 권한 즉시 변경 가능
 
@@ -625,7 +630,7 @@ taskkill /PID [PID번호] /F
 
 ---
 
-## 17. 완료된 작업 현황 (2026-04-27 기준)
+## 17. 완료된 작업 현황 (2026-05-04 기준)
 
 | 항목 | 상태 |
 |------|------|
@@ -645,6 +650,10 @@ taskkill /PID [PID번호] /F
 | 클래스 통합 탐색 범위 당일 고정 | ✅ 완료 |
 | 클래스 통합 시뮬레이션 — 대상 교사 자신의 과목 표시 | ✅ 완료 |
 | 시간표 분석 탭 신규 추가 (ScheduleAnalysis.tsx) | ✅ 완료 |
+| SSO 연동 (플랫폼 JWT 검증 및 자동 로그인) | ✅ 완료 |
+| 로그아웃 시 플랫폼 페이지로 이동 | ✅ 완료 |
+| managedApp 기반 업무담당자 역할 자동 부여 | ✅ 완료 |
+| 교사/업무담당자 권한 분리 (확정 적용 제한) | ✅ 완료 |
 
 ---
 
@@ -848,7 +857,50 @@ For each date in [startDate, endDate] (평일만):
 
 ## 26. 잔여 개발 항목
 
-1. **시간표 앱 SSO 연동**: 플랫폼 서버 개발 완료 후, 토큰 검증만 하도록 시간표 앱 로그인 로직 간소화
-2. **Google Calendar API 연동:** 일별 시간표 변경 시 Google Calendar 자동 반영
-3. **시간표 분석 고도화:** 학급별 편차 시각화(차트) 등 추가 개선
-4. **OCI 운영 서버 배포:** git push 후 OCI 원격 배포 명령어 실행
+1. **Google Calendar API 연동:** 일별 시간표 변경 시 Google Calendar 자동 반영
+2. **시간표 분석 고도화:** 학급별 편차 시각화(차트) 등 추가 개선
+
+---
+
+## 27. SSO 연동 구현 상세 (2026-05-04 완료)
+
+### 흐름
+```
+사용자 → platform.sdjgh-ai.kr 로그인
+       → 시간표 카드 클릭
+       → https://sdjgh-timetable.sdjgh-ai.kr?token=JWT값 이동
+       → Login.tsx가 ?token= 감지 → /api/auth/sso 호출
+       → 서버에서 JWT 검증 + 역할 결정 → 시간표용 JWT 재발급
+       → 대시보드 자동 이동
+```
+
+### 역할 결정 로직 (`/api/auth/sso`)
+```js
+// 플랫폼 JWT의 managedApp 필드에 'timetable' 포함 여부로 역할 결정
+// managedApp은 해당 앱의 '업무담당자' 여부를 나타내는 필드 (접근 권한 아님)
+const apps = (managedApp || '').split(',').map(s => s.trim());
+const timetableRole = apps.includes('timetable') ? '업무담당자' : role;
+```
+
+- `managedApp`에 `timetable` 포함 → `업무담당자` 역할 부여
+- 미포함 → 플랫폼의 `role` 그대로 사용 (교사, 학생 등)
+- `managedApp` 필드는 구글 시트 `업무담당자앱` 열(J열) 값
+
+### 로그아웃 처리
+- `Dashboard.tsx` 로그아웃 버튼: `window.location.href = 'https://platform.sdjgh-ai.kr/'`
+- `App.tsx` 401 자동 로그아웃: 동일하게 플랫폼으로 이동
+
+### 플랫폼 서버 정보
+
+| 항목 | 값 |
+|------|-----|
+| 운영 URL | `https://platform.sdjgh-ai.kr` |
+| OCI IP | `152.67.193.142` |
+| SSH 키 | `F:\Kim_Jungho\jungho_webapp\keys\oracle_celbeloss_sdjgh.key` |
+| .env 경로 (OCI) | `~/sdjgh_platfom/server/.env` |
+| JWT_SECRET | 시간표 서버와 동일한 값 사용 (`server/.env` 참조) |
+
+### OCI 플랫폼 서버 배포 명령어
+```powershell
+ssh -i "F:\Kim_Jungho\jungho_webapp\keys\oracle_celbeloss_sdjgh.key" -o ServerAliveInterval=5 ubuntu@152.67.193.142 "cd ~/sdjgh_platfom && git pull origin main && pm2 restart all"
+```
