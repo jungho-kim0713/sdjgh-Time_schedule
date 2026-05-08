@@ -441,7 +441,7 @@ git push origin main
 코드를 푸시한 후, 로컬 (Windows PowerShell) 에서 아래 한 줄 명령어만 입력하면 서버에서 코드를 Pull 받아 빌드 후 자동 재시작합니다.
 
 ```powershell
-ssh -i "F:\Kim_Jungho\jihye_webapp\[key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "cd ~/time-schedule && git pull origin main && cd client && npm install && npm run build && cd ../server && npm install && pm2 restart time-schedule"
+ssh -i "F:\Kim_Jungho\jihye_webapp\[jihye_key]\oracle_newif9888.key" -o ServerAliveInterval=5 ubuntu@134.185.98.191 "cd ~/time-schedule && git pull origin main && cd client && npm install && npm run build && cd ../server && npm install && pm2 restart time-schedule"
 ```
 
 

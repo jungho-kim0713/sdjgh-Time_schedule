@@ -543,8 +543,8 @@ const Dashboard: React.FC = () => {
           onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
         >
-          <img src="/time_schedule.png" alt="Logo" style={{ width: '22px', height: '22px', borderRadius: '5px' }} />
-          <span style={{ color: 'white', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '-0.02em' }}>서대전여고</span>
+          <img src="/서대전여고 로고(투명).png" alt="Logo" style={{ width: '22px', height: '22px', borderRadius: '5px' }} />
+          <span style={{ color: 'white', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '-0.02em' }}>플랫폼으로</span>
         </div>
 
         <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 조회</button>
