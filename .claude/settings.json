@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Read(//f/f/Kim_Jungho/jungho_webapp/**)"
+      "Read(//f/f/Kim_Jungho/jungho_webapp/**)",
+      "Bash(ssh -i \"F:\\\\Kim_Jungho\\\\jihye_webapp\\\\[key]\\\\oracle_newif9888.key\" -o ServerAliveInterval=5 ubuntu@134.185.98.191 \"node -e \\\\\"require\\('dotenv'\\).config\\({path:'/home/ubuntu/time-schedule/server/.env'}\\); console.log\\('TIMETABLE JWT_SECRET:', process.env.JWT_SECRET\\);\\\\\"\")"
     ]
   }
 }

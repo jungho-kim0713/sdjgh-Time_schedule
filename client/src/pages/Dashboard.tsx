@@ -529,10 +529,24 @@ const Dashboard: React.FC = () => {
 
       <nav style={{
         position: 'sticky', top: '12px', margin: '0 auto', maxWidth: 'calc(100vw - 24px)', width: 'max-content',
-        display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px', justifyContent: 'center',
-        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255, 255, 255, 0.08)',
-        borderRadius: '24px', zIndex: 50, boxShadow: '0 10px 40px -10px rgba(0,0,0,0.5)', animation: 'fadeInUp 0.8s'
+        display: 'flex', flexWrap: 'wrap', gap: '6px', padding: '8px 12px', alignItems: 'center',
+        background: 'rgba(255, 255, 255, 0.05)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255, 255, 255, 0.12)',
+        borderRadius: '24px', zIndex: 50, boxShadow: '0 12px 40px -10px rgba(0,0,0,0.5)', animation: 'fadeInUp 0.8s'
       }}>
+        <div 
+          onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); window.location.href = 'https://platform.sdjgh-ai.kr/'; }}
+          style={{ 
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px', marginRight: '10px',
+            background: 'rgba(255, 255, 255, 0.08)', borderRadius: '16px', transition: 'var(--transition-spring)',
+            border: '1px solid rgba(255, 255, 255, 0.1)'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+        >
+          <img src="/time_schedule.png" alt="Logo" style={{ width: '22px', height: '22px', borderRadius: '5px' }} />
+          <span style={{ color: 'white', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '-0.02em' }}>서대전여고</span>
+        </div>
+
         <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 조회</button>
         {(userRole === '업무담당자' || userRole === '관리자') && (
           <button onClick={() => setActiveTab('calendar')} style={{ background: activeTab === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'calendar' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>학사일정 관리</button>
@@ -546,7 +560,6 @@ const Dashboard: React.FC = () => {
         {userRole === '관리자' && (
           <button onClick={() => navigate('/admin')} style={{ background: 'transparent', color: '#ffb86c', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>사용자 관리</button>
         )}
-        <button onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); window.location.href = 'https://platform.sdjgh-ai.kr/'; }} style={{ background: 'transparent', color: '#ff5555', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>로그아웃</button>
       </nav>
 
       <main style={{ maxWidth: '1400px', margin: '0 auto', padding: 'clamp(24px, 5vw, 60px) clamp(12px, 4vw, 40px)', width: '100%' }} className="animate-fade-in mobile-main">
