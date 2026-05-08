@@ -19,6 +19,10 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // 다중 선택 상태
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null);
+
   const activeEvents = useMemo(() => {
     const map = new Map();
     dailySchedules.forEach(d => {
@@ -34,6 +38,39 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
         return parseInt(a['교시']) - parseInt(b['교시']);
     });
   }, [dailySchedules]);
+
+  // 체크박스 클릭 핸들러 (Shift 키 지원)
+  const handleCheckboxClick = (index: number, e: React.MouseEvent) => {
+    const key = `${activeEvents[index]['날짜']}_${activeEvents[index]['교시']}_${activeEvents[index]['강좌코드']}`;
+    const newSelectedKeys = new Set(selectedKeys);
+
+    if (e.shiftKey && lastSelectedIndex !== null) {
+      const start = Math.min(lastSelectedIndex, index);
+      const end = Math.max(lastSelectedIndex, index);
+      
+      const isSelecting = !selectedKeys.has(key);
+      
+      for (let i = start; i <= end; i++) {
+        const itemKey = `${activeEvents[i]['날짜']}_${activeEvents[i]['교시']}_${activeEvents[i]['강좌코드']}`;
+        if (isSelecting) newSelectedKeys.add(itemKey);
+        else newSelectedKeys.delete(itemKey);
+      }
+    } else {
+      if (newSelectedKeys.has(key)) newSelectedKeys.delete(key);
+      else newSelectedKeys.add(key);
+      setLastSelectedIndex(index);
+    }
+    setSelectedKeys(newSelectedKeys);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedKeys.size === activeEvents.length) {
+      setSelectedKeys(new Set());
+    } else {
+      const allKeys = activeEvents.map(e => `${e['날짜']}_${e['교시']}_${e['강좌코드']}`);
+      setSelectedKeys(new Set(allKeys));
+    }
+  };
 
   const handleRegister = async () => {
     if (!reason.trim()) {
@@ -93,6 +130,36 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
       const res = await axios.post('/api/schedule/update', { payloads });
       if (res.data.success) {
         alert('취소되었습니다.');
+        setSelectedKeys(new Set());
+        onUpdate();
+      }
+    } catch (err) {
+      alert('오류가 발생했습니다.');
+    }
+    setLoading(false);
+  };
+
+  const handleBulkCancel = async () => {
+    if (!window.confirm(`선택한 ${selectedKeys.size}개의 행사를 모두 취소하시겠습니까?`)) return;
+
+    setLoading(true);
+    const payloads = activeEvents
+      .filter(e => selectedKeys.has(`${e['날짜']}_${e['교시']}_${e['강좌코드']}`))
+      .map(e => ({
+        date: e['날짜'],
+        period: e['교시'],
+        courseCode: e['강좌코드'],
+        sourceTeacher: '',
+        targetTeacher: '',
+        status: '취소',
+        reason: '행사 일괄 취소'
+      }));
+
+    try {
+      const res = await axios.post('/api/schedule/update', { payloads });
+      if (res.data.success) {
+        alert(`${selectedKeys.size}개의 행사가 취소되었습니다.`);
+        setSelectedKeys(new Set());
         onUpdate();
       }
     } catch (err) {
@@ -160,8 +227,23 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
       </div>
 
       <div className="double-bezel-outer" style={{ padding: '32px' }}>
-        <h3 style={{ marginTop: 0, fontSize: '1.2rem', color: 'white' }}>등록된 행사 목록</h3>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px', fontSize: '0.9rem' }}>취소 버튼을 누르면 원래 시간표로 복구됩니다.</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div>
+            <h3 style={{ marginTop: 0, marginBottom: '4px', fontSize: '1.2rem', color: 'white' }}>등록된 행사 목록</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>SHIFT 키를 눌러 범위 선택이 가능합니다.</p>
+          </div>
+          {selectedKeys.size > 0 && (
+            <button 
+              onClick={handleBulkCancel} 
+              disabled={loading}
+              style={{ background: 'rgba(255,85,85,0.2)', color: '#ff5555', border: '1px solid rgba(255,85,85,0.3)', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, transition: 'all 0.2s' }}
+              onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,85,85,0.3)')}
+              onMouseOut={e => (e.currentTarget.style.background = 'rgba(255,85,85,0.2)')}
+            >
+              선택한 {selectedKeys.size}개 일괄 취소
+            </button>
+          )}
+        </div>
         
         {activeEvents.length === 0 ? (
           <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>등록된 행사가 없습니다.</div>
@@ -169,6 +251,14 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
           <table style={{ width: '100%', borderCollapse: 'collapse', color: 'white', fontSize: '0.95rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                <th style={{ padding: '12px', width: '40px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedKeys.size === activeEvents.length && activeEvents.length > 0} 
+                    onChange={handleSelectAll}
+                    style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                  />
+                </th>
                 <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-secondary)' }}>날짜</th>
                 <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-secondary)' }}>교시</th>
                 <th style={{ padding: '12px', textAlign: 'left', color: 'var(--text-secondary)' }}>대상</th>
@@ -177,19 +267,39 @@ const EventManagement: React.FC<Props> = ({ dailySchedules, onUpdate }) => {
               </tr>
             </thead>
             <tbody>
-              {activeEvents.map(e => (
-                <tr key={`${e['날짜']}_${e['교시']}_${e['강좌코드']}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  <td style={{ padding: '12px' }}>{e['날짜']} ({getDayString(e['날짜'])})</td>
-                  <td style={{ padding: '12px' }}>{e['교시']}교시</td>
-                  <td style={{ padding: '12px' }}>{e['강좌코드'].replace('행사(', '').replace(')', '')}</td>
-                  <td style={{ padding: '12px', color: '#ffb86c' }}>{e['사유']}</td>
-                  <td style={{ padding: '12px', textAlign: 'right' }}>
-                    <button onClick={() => handleCancel(e)} disabled={loading} style={{ background: 'rgba(255,85,85,0.15)', color: '#ff5555', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>
-                      취소
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {activeEvents.map((e, idx) => {
+                const key = `${e['날짜']}_${e['교시']}_${e['강좌코드']}`;
+                const isSelected = selectedKeys.has(key);
+                return (
+                  <tr 
+                    key={key} 
+                    style={{ 
+                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                      background: isSelected ? 'rgba(255,255,255,0.03)' : 'transparent',
+                      transition: 'background 0.2s'
+                    }}
+                  >
+                    <td style={{ padding: '12px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isSelected}
+                        onClick={(ev) => handleCheckboxClick(idx, ev)}
+                        onChange={() => {}} // onClick에서 처리
+                        style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                      />
+                    </td>
+                    <td style={{ padding: '12px' }}>{e['날짜']} ({getDayString(e['날짜'])})</td>
+                    <td style={{ padding: '12px' }}>{e['교시']}교시</td>
+                    <td style={{ padding: '12px' }}>{e['강좌코드'].replace('행사(', '').replace(')', '')}</td>
+                    <td style={{ padding: '12px', color: '#ffb86c' }}>{e['사유']}</td>
+                    <td style={{ padding: '12px', textAlign: 'right' }}>
+                      <button onClick={() => handleCancel(e)} disabled={loading} style={{ background: 'rgba(255,85,85,0.15)', color: '#ff5555', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>
+                        취소
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
