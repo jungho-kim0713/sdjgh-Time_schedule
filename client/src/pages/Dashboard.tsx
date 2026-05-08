@@ -36,6 +36,8 @@ const Dashboard: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<string>('none');
   const [userRole, setUserRole] = useState<string>('');
   const [userEmail, setUserEmail] = useState<string>('');
+  const [userName, setUserName] = useState<string>('');
+  const [userIdentifier, setUserIdentifier] = useState<string>('');
 
   const [targetDate, setTargetDate] = useState<string>(() => {
      return new Date().toISOString().split('T')[0];
@@ -51,6 +53,8 @@ const Dashboard: React.FC = () => {
         const user = JSON.parse(userStr);
         setUserRole(user.role);
         setUserEmail(user.email);
+        setUserName(user.name || '');
+        setUserIdentifier(user.identifier || '');
         const saved = sessionStorage.getItem('dashboard_activeTab') as 'view' | 'edit' | 'analyze' | 'calendar';
         if ((saved === 'edit' || saved === 'calendar') && user.role === '학생') {
           setActiveTab('view');
@@ -86,10 +90,13 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  // 구글 계정으로 로그인한 학생의 기본 학급/학생 자동 선택
+  // 학생 로그인 시 고유식별자(학번)로 학급 자동 선택
   useEffect(() => {
-    if (userRole === '학생' && students.length > 0 && userEmail && selectedClass === 'none') {
-      const me = students.find(s => s['구글 계정'] === userEmail);
+    if (userRole === '학생' && students.length > 0 && selectedClass === 'none') {
+      // identifier(학번) 우선, 없으면 구글 계정 이메일로 fallback
+      const me = userIdentifier
+        ? students.find(s => String(s['학번']) === String(userIdentifier))
+        : students.find(s => s['구글 계정'] === userEmail);
       if (me && me['학번']) {
         const hakbun = String(me['학번']);
         if (hakbun.length === 5) {
@@ -100,7 +107,20 @@ const Dashboard: React.FC = () => {
         }
       }
     }
-  }, [students, userEmail, userRole, selectedClass]);
+  }, [students, userIdentifier, userEmail, userRole, selectedClass]);
+
+  // 교사/업무담당자/관리자 로그인 시 본인 시간표 자동 선택
+  useEffect(() => {
+    if (
+      (userRole === '교사' || userRole === '업무담당자' || userRole === '관리자') &&
+      teachers.length > 0 &&
+      userName &&
+      selectedTeacherId === 'all'
+    ) {
+      const me = teachers.find(t => t['교사명'] === userName);
+      if (me) setSelectedTeacherId(userName);
+    }
+  }, [teachers, userName, userRole, selectedTeacherId]);
 
   const weekDates = useMemo(() => {
      const d = new Date(targetDate);
@@ -535,13 +555,13 @@ const Dashboard: React.FC = () => {
       }}>
         <div 
           onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); window.location.href = 'https://platform.sdjgh-ai.kr/'; }}
-          style={{ 
+          style={{
             cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px', marginRight: '10px',
-            background: 'rgba(255, 255, 255, 0.08)', borderRadius: '16px', transition: 'var(--transition-spring)',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            background: 'transparent', borderRadius: '16px', transition: 'var(--transition-spring)',
+            border: 'none'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'}
-          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <img src="/서대전여고 로고(투명).png" alt="Logo" style={{ width: '22px', height: '22px', borderRadius: '5px' }} />
           <span style={{ color: 'white', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '-0.02em' }}>플랫폼으로</span>
