@@ -419,11 +419,82 @@ const Dashboard: React.FC = () => {
       const s = getSpecialStyle('클럽(전체)');
       return { elements: <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem', padding: '4px' }}>{s.emoji} 클럽 시간</div>, raw: specialItems, isSpecial: '클럽' };
     }
-    if (specialItems.some(m => m.status === '행사')) {
-      const event = specialItems.find(m => m.status === '행사');
-      const s = getSpecialStyle(event['강좌코드']);
-      const scope = event['강좌코드'].replace('행사(', '').replace(')', '');
-      return { elements: <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem', padding: '4px', textAlign: 'center' }}>{s.emoji} {event.reason}<div style={{fontSize:'0.75rem', marginTop:'4px'}}>{scope}</div></div>, raw: specialItems, isSpecial: '행사' };
+    // 행사 처리 로직 개선: 학년별로 행사가 다를 수 있으므로 분리해서 표시
+    const activeEvents = specialItems.filter(m => m.status === '행사');
+    if (activeEvents.length > 0) {
+      const allGradeEvent = activeEvents.find(e => e['강좌코드'] === '행사(전체)');
+      
+      // 1. 전체 학년 공통 행사인 경우 (기존과 동일하게 크게 표시)
+      if (allGradeEvent) {
+        const s = getSpecialStyle(allGradeEvent['강좌코드']);
+        return { 
+          elements: (
+            <div style={{ color: s.color, fontWeight: 700, fontSize: '1.1rem', padding: '4px', textAlign: 'center' }}>
+              {s.emoji} {allGradeEvent.reason}
+              <div style={{fontSize:'0.75rem', marginTop:'4px'}}>전체</div>
+            </div>
+          ), 
+          raw: specialItems, 
+          isSpecial: '행사' 
+        };
+      }
+
+      // 2. 학년별로 행사가 다르거나 일부 학년만 행사인 경우
+      // 학사일정 관리에서 등록된 학년별 행사 맵핑
+      const gradeEvents: Record<string, any> = {};
+      activeEvents.forEach(e => {
+        const g = e['강좌코드'].match(/\d/)?.[0];
+        if (g) gradeEvents[g] = e;
+      });
+
+      // 일반 강좌 수 집계
+      const gradeCounts: Record<string, number> = { '1': 0, '2': 0, '3': 0 };
+      normalItems.forEach(m => {
+          const match = m['강좌코드'].match(/(\((.*?)-(.*?)\))/);
+          if (match) {
+              const grade = match[2];
+              if (gradeCounts[grade] !== undefined) gradeCounts[grade]++;
+          }
+      });
+
+      const hasOverride = normalItems.some((m: any) => m.isOverride);
+      const bujanCount = specialItems.filter(m => m['강좌코드'].startsWith('부장(회의)')).length;
+
+      return {
+        elements: (
+          <div onClick={() => setSelectedCell({ dateStr, day, period, matched: [...normalItems, ...activeEvents] })}
+               style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative', width: '100%', height: '100%', cursor: 'pointer', alignItems: 'center', justifyContent: 'center' }}>
+            {hasOverride && <div style={{ position:'absolute', top:'-10px', right:'-10px', width:'10px', height:'10px', borderRadius:'50%', background:'#ff5555', boxShadow:'0 0 10px #ff5555' }} />}
+            {bujanCount > 0 && (
+              <div style={{ fontSize: '0.75rem', color: '#ff79c6', background: 'rgba(255,121,198,0.1)', padding: '2px 6px', borderRadius: '4px' }}>📋 부장회의 {bujanCount}명</div>
+            )}
+            {[1, 2, 3].map(g => {
+              const gradeStr = String(g);
+              const event = gradeEvents[gradeStr];
+              const count = gradeCounts[gradeStr];
+
+              if (event) {
+                const s = getSpecialStyle(event['강좌코드']);
+                return (
+                  <div key={g} style={{ fontSize: '0.9rem', width: '100%', background: s.bg, padding: '4px 0', borderRadius: '4px', border: `1px solid ${s.color}40` }}>
+                    <span style={{color: s.color, fontWeight: 700}}>{s.emoji} {event.reason}</span>
+                  </div>
+                );
+              } else if (count > 0) {
+                return (
+                  <div key={g} style={{ fontSize: '0.9rem', width: '100%', background: 'rgba(255,255,255,0.05)', padding: '4px 0', borderRadius: '4px' }}>
+                    <span style={{color: '#ffb86c'}}>{g}학년</span> {count}강좌
+                  </div>
+                );
+              }
+              return null;
+            })}
+            <div style={{ fontSize: '0.75rem', marginTop: '2px', color: 'var(--text-secondary)' }}>클릭해서 학급 표 보기</div>
+          </div>
+        ),
+        raw: matched,
+        isSpecial: undefined
+      };
     }
 
     if(normalItems.length === 0) return { elements: null, raw: [] };
@@ -466,18 +537,44 @@ const Dashboard: React.FC = () => {
      let maxClass = 1;
 
      selectedCell.matched.forEach((m: any) => {
-        const courseInfo = courses.find(c => c['강좌코드'] === m['강좌코드']);
-        const subject = courseInfo ? courseInfo['과목명'] : m['강좌코드'].split('(')[0];
-        let teacher = courseInfo ? courseInfo['담당교사'] : '';
-        if (m.isOverride) teacher = m['담당교사'];
+        // 일반 강좌 처리
+        if (m.status !== '행사') {
+          const courseInfo = courses.find(c => c['강좌코드'] === m['강좌코드']);
+          const subject = courseInfo ? courseInfo['과목명'] : m['강좌코드'].split('(')[0];
+          let teacher = courseInfo ? courseInfo['담당교사'] : '';
+          if (m.isOverride) teacher = m['담당교사'];
 
-        const match = m['강좌코드'].match(/(\((.*?)-(.*?)\))/);
-        if (match) {
-           const grade = match[2];
-           const cls = Number(match[3]);
-           if (cls > maxClass) maxClass = cls;
-           if (!matrix[grade]) matrix[grade] = {};
-           matrix[grade][cls] = { subject, teacher, isOverride: m.isOverride, status: m.status };
+          const match = m['강좌코드'].match(/(\((.*?)-(.*?)\))/);
+          if (match) {
+             const grade = match[2];
+             const cls = Number(match[3]);
+             if (cls > maxClass) maxClass = cls;
+             if (!matrix[grade]) matrix[grade] = {};
+             matrix[grade][cls] = { subject, teacher, isOverride: m.isOverride, status: m.status, isEvent: false };
+          }
+        } else {
+          // 행사 처리 (학년별 또는 전체)
+          const s = getSpecialStyle(m['강좌코드']);
+          const gradeMatch = m['강좌코드'].match(/\d/);
+          const targetGrade = gradeMatch ? gradeMatch[0] : null;
+
+          if (targetGrade) {
+            // 특정 학년 행사: 해당 학년의 모든 반(1~8반)에 채움
+            for (let c = 1; c <= 8; c++) {
+              if (c > maxClass) maxClass = c;
+              if (!matrix[targetGrade]) matrix[targetGrade] = {};
+              matrix[targetGrade][c] = { subject: m.reason, teacher: '행사', isOverride: true, status: '행사', isEvent: true, color: s.color };
+            }
+          } else if (m['강좌코드'] === '행사(전체)') {
+            // 전체 학년 행사: 모든 학년 모든 반에 채움
+            for (let g = 1; g <= 3; g++) {
+              for (let c = 1; c <= 8; c++) {
+                if (c > maxClass) maxClass = c;
+                if (!matrix[String(g)]) matrix[String(g)] = {};
+                matrix[String(g)][c] = { subject: m.reason, teacher: '행사', isOverride: true, status: '행사', isEvent: true, color: s.color };
+              }
+            }
+          }
         }
      });
 
@@ -497,13 +594,25 @@ const Dashboard: React.FC = () => {
                    <td style={{ padding: '16px', fontWeight: 'bold', background: 'rgba(255,255,255,0.05)', fontSize:'1.1rem' }}>{cls}반</td>
                    {[1, 2, 3].map(g => {
                       const cell = matrix[g]?.[cls];
+                      const isEvent = cell?.isEvent;
                       return (
-                         <td key={`${g}-${cls}`} style={{ padding: '16px', background: cell?.isOverride ? 'rgba(255,85,85,0.15)' : 'transparent', transition: 'var(--transition-spring)', borderLeft: '1px solid rgba(255,255,255,0.05)' }}>
+                         <td key={`${g}-${cls}`} style={{ 
+                           padding: '16px', 
+                           background: isEvent ? 'rgba(241,250,140,0.1)' : (cell?.isOverride ? 'rgba(255,85,85,0.15)' : 'transparent'), 
+                           transition: 'var(--transition-spring)', 
+                           borderLeft: '1px solid rgba(255,255,255,0.05)' 
+                         }}>
                             {cell ? (
                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
-                                  <span style={{ fontWeight: 600, fontSize: '1.2rem', color: cell.isOverride ? '#a8ffb2' : 'white' }}>{cell.subject}</span>
-                                  <span style={{ fontSize: '0.95rem', color: cell.isOverride ? '#ffb86c' : 'var(--text-secondary)' }}>
-                                    {cell.teacher} {cell.isOverride ? <span style={{color:'#ff5555'}}>[{cell.status}]</span> : ''}
+                                  <span style={{ 
+                                    fontWeight: 600, 
+                                    fontSize: isEvent ? '1.1rem' : '1.2rem', 
+                                    color: isEvent ? (cell.color || '#f1fa8c') : (cell.isOverride ? '#a8ffb2' : 'white') 
+                                  }}>
+                                    {isEvent && '🎉 '}{cell.subject}
+                                  </span>
+                                  <span style={{ fontSize: '0.95rem', color: isEvent ? (cell.color || '#f1fa8c') : (cell.isOverride ? '#ffb86c' : 'var(--text-secondary)') }}>
+                                    {isEvent ? '학사일정' : cell.teacher} {(!isEvent && cell.isOverride) ? <span style={{color:'#ff5555'}}>[{cell.status}]</span> : ''}
                                   </span>
                                </div>
                             ) : <span style={{ opacity: 0.1 }}>-</span>}
