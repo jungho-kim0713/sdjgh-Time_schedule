@@ -658,8 +658,8 @@ const Dashboard: React.FC = () => {
   const labelStyle: React.CSSProperties = {
     fontSize: '0.85rem',
     color: 'var(--text-secondary)',
-    marginRight: '12px',
-    minWidth: '60px',
+    marginRight: '8px',
+    minWidth: '40px',
   };
 
   return (
@@ -749,10 +749,9 @@ const Dashboard: React.FC = () => {
           <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
             {activeTab === 'view' && (
                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '6px 16px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', position: 'relative', cursor: 'pointer' }}>
-                 <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginRight: '12px', pointerEvents: 'none' }}>기준일(주간)</label>
                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', pointerEvents: 'none' }}>
                    <span style={{ fontSize: '1rem', color: 'white', fontFamily: 'Pretendard' }}>
-                     {targetDate ? `${targetDate} (${['일', '월', '화', '수', '목', '금', '토'][new Date(targetDate).getDay()]})` : '날짜 선택'}
+                     {targetDate ? `${targetDate.substring(5)} (${['일', '월', '화', '수', '목', '금', '토'][new Date(targetDate).getDay()]})` : '날짜 선택'}
                    </span>
                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line>
@@ -770,7 +769,7 @@ const Dashboard: React.FC = () => {
                 {userRole !== '학생' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={dropdownStyle}>
-                      <label style={labelStyle}>교과 선택</label>
+                      <label style={labelStyle}>교과</label>
                       <select
                         value={selectedSubject}
                         onChange={(e) => setSelectedSubject(e.target.value)}
@@ -784,7 +783,7 @@ const Dashboard: React.FC = () => {
                     </div>
 
                     <div style={dropdownStyle}>
-                      <label style={labelStyle}>강사 선택</label>
+                      <label style={labelStyle}>강사</label>
                       <select
                         value={selectedTeacherId}
                         onChange={(e) => handleTeacherChange(e.target.value)}
@@ -812,7 +811,7 @@ const Dashboard: React.FC = () => {
                       ? 'rgba(139,233,253,0.08)'
                       : 'rgba(255,255,255,0.05)',
                   }}>
-                    <label style={labelStyle}>학급 선택</label>
+                    <label style={labelStyle}>학급</label>
                     <select
                       value={selectedClass}
                       onChange={(e) => handleClassChange(e.target.value)}
@@ -838,7 +837,7 @@ const Dashboard: React.FC = () => {
                       ? 'rgba(139,233,253,0.08)'
                       : 'rgba(255,255,255,0.05)',
                   }}>
-                    <label style={labelStyle}>학생 선택</label>
+                    <label style={labelStyle}>학생</label>
                     <select
                       value={selectedStudent}
                       onChange={(e) => setSelectedStudent(e.target.value)}
