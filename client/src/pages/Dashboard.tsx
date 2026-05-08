@@ -267,6 +267,15 @@ const Dashboard: React.FC = () => {
       if (s['강좌코드'] === '자율(전체)') return true;
       if (s['강좌코드'] === '클럽(전체)') return true;
       
+      // 학사일정(행사) 처리 추가: 전체 또는 해당 학년 행사인 경우 포함
+      if (s.status === '행사') {
+        if (s['강좌코드'] === '행사(전체)') return true;
+        const gradeMatch = s['강좌코드'].match(/\d/);
+        const eventGrade = gradeMatch ? gradeMatch[0] : null;
+        const selectedGrade = selectedClass.split('-')[0];
+        if (eventGrade === selectedGrade) return true;
+      }
+
       if (s['강좌코드'].includes(`(${selectedClass})`)) return true;
       
       if (selectedStudent !== 'none') {
