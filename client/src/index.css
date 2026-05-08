@@ -179,3 +179,20 @@ button {
     min-height: 48px;
   }
 }
+
+/* Responsive Utilities */
+.desktop-only {
+  display: inline-block;
+}
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: inline-block !important;
+  }
+}
