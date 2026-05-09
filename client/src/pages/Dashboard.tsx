@@ -92,19 +92,33 @@ const Dashboard: React.FC = () => {
 
   // 학생 로그인 시 고유식별자(학번)로 학급 자동 선택
   useEffect(() => {
-    if (userRole === '학생' && students.length > 0 && selectedClass === 'none') {
-      // identifier(학번) 우선, 없으면 구글 계정 이메일로 fallback
-      const me = userIdentifier
-        ? students.find(s => String(s['학번']) === String(userIdentifier))
-        : students.find(s => s['구글 계정'] === userEmail);
-      if (me && me['학번']) {
-        const hakbun = String(me['학번']);
-        if (hakbun.length === 5) {
-          const grade = parseInt(hakbun[0], 10);
-          const cls = parseInt(hakbun.substring(1, 3), 10);
-          setSelectedClass(`${grade}-${cls}`);
-          setSelectedStudent(hakbun);
+    if (userRole === '학생' && selectedClass === 'none') {
+      let hakbun = '';
+      
+      // 1. 고유식별자(identifier) 분석
+      if (userIdentifier) {
+        // '26-10120' 같은 형식 대응 (하이픈 뒤의 5자리 추출)
+        const parts = userIdentifier.split('-');
+        const idPart = parts.length > 1 ? parts[1] : parts[0];
+        if (idPart.length === 5) {
+          hakbun = idPart;
         }
+      }
+
+      // 2. 고유식별자가 없으면 이메일로 학생 목록에서 검색 (Fallback)
+      if (!hakbun && students.length > 0 && userEmail) {
+        const me = students.find(s => s['구글 계정'] === userEmail);
+        if (me && me['학번']) {
+          hakbun = String(me['학번']);
+        }
+      }
+
+      // 3. 추출된 학번으로 학급 및 학생 자동 선택
+      if (hakbun && hakbun.length === 5) {
+        const grade = parseInt(hakbun[0], 10);
+        const cls = parseInt(hakbun.substring(1, 3), 10);
+        setSelectedClass(`${grade}-${cls}`);
+        setSelectedStudent(hakbun);
       }
     }
   }, [students, userIdentifier, userEmail, userRole, selectedClass]);
@@ -674,7 +688,7 @@ const Dashboard: React.FC = () => {
         <div 
           onClick={() => { localStorage.removeItem('user'); localStorage.removeItem('token'); window.location.href = 'https://platform.sdjgh-ai.kr/'; }}
           style={{
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px', marginRight: '10px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 14px',
             background: 'transparent', borderRadius: '16px', transition: 'var(--transition-spring)',
             border: 'none'
           }}
@@ -682,7 +696,6 @@ const Dashboard: React.FC = () => {
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <img src="/서대전여고 로고(투명).png" alt="Logo" style={{ width: '22px', height: '22px', borderRadius: '5px' }} />
-          <span style={{ color: 'white', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '-0.02em' }}>플랫폼으로</span>
         </div>
 
         <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 조회</button>
@@ -692,7 +705,7 @@ const Dashboard: React.FC = () => {
         {(userRole === '관리자' || userRole === '업무담당자' || userRole === '교사') && (
           <button onClick={() => setActiveTab('edit')} style={{ background: activeTab === 'edit' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'edit' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 수정</button>
         )}
-        {true && (
+        {userRole !== '학생' && (
           <button onClick={() => setActiveTab('analyze')} style={{ background: activeTab === 'analyze' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'analyze' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 분석</button>
         )}
         {userRole === '관리자' && (
