@@ -148,10 +148,8 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
   const getSourceSchedules = () => {
     if (!selectedDate || sourceTeacher === 'all') return [];
     const dayOfWeek = getDayString(selectedDate);
-    const teacherCourses = courses.filter(c => c['담당교사'] === sourceTeacher).map(c => c['강좌코드']);
-
-    // 기준_시간표 베이스 추출
-    let daySchedules = baseSchedules.filter(s => s['요일'] === dayOfWeek && teacherCourses.includes(s['강좌코드']));
+    // 기준_시간표 베이스 추출 — 담당교사 필드 직접 비교 (강좌_마스터 조회 시 동일 강좌코드를 여러 교사가 공유할 경우 오귀속 발생)
+    let daySchedules = baseSchedules.filter(s => s['요일'] === dayOfWeek && s['담당교사'] === sourceTeacher);
 
     // 일별_시간표(dailySchedules) 이벤트 소싱 (보상 트랜잭션) 모델
     const todayChanges = dailySchedules?.filter(d => d['날짜'] === selectedDate) || [];

@@ -73,54 +73,204 @@ function parseSheetData(values) {
     });
 }
 
-// 종합 메인 데이터(프론트엔드 테이블 및 필터 렌더용) fetching API (인증 필요)
+async function getAllData(force = false) {
+    const cacheKey = 'allSheetData';
+    if (!force) {
+        const cachedData = appCache.get(cacheKey);
+        if (cachedData) return cachedData;
+    }
+
+    console.log('📡 구글 스프레드시트 API를 호출합니다 (캐시 없음)...');
+    const ranges = ["'강좌_마스터'!A:G", "'교사_명렬표'!A:H", "'기준_시간표'!A:D", "'일별_시간표'!A:G", "'학생_명렬표'!A:N"];
+    const [response, masterResponse] = await Promise.all([
+        sheets.spreadsheets.values.batchGet({
+            spreadsheetId: SPREADSHEET_ID,
+            ranges: ranges
+        }),
+        sheets.spreadsheets.values.get({
+            spreadsheetId: MASTER_SPREADSHEET_ID,
+            range: "'사용자_관리'!A:I"
+        })
+    ]);
+
+    const valueRanges = response.data.valueRanges;
+    const courses = parseSheetData(valueRanges[0].values);
+    const teachers = parseSheetData(valueRanges[1].values);
+    const baseSchedules = parseSheetData(valueRanges[2].values);
+    const dailySchedules = parseSheetData(valueRanges[3].values);
+    const students = parseSheetData(valueRanges[4].values);
+    const users = parseSheetData(masterResponse.data.values || []);
+
+    const dataToCache = { courses, teachers, baseSchedules, dailySchedules, students, users };
+    appCache.set(cacheKey, dataToCache);
+    return dataToCache;
+}
+
+// 🚀 백그라운드 캐시 자동 갱신 (사용자가 로딩 지연을 겪지 않도록 4분 30초마다 자동 최신화)
+setInterval(() => {
+    console.log('🔄 백그라운드 캐시 자동 갱신 중...');
+    getAllData(true).catch(err => console.error('백그라운드 갱신 에러:', err));
+}, 4.5 * 60 * 1000);
+
+// 서버 시작 시 최초 1회 데이터를 미리 당겨와서 첫 접속자도 빠르게!
+setTimeout(() => {
+    getAllData().catch(err => console.error('초기 데이터 로드 에러:', err));
+}, 1000);
+
 app.get('/api/data', authenticateToken, async (req, res) => {
     try {
-        const cacheKey = 'allSheetData';
-        const cachedData = appCache.get(cacheKey);
-        
-        if (cachedData) {
-            return res.json({
-                success: true,
-                data: cachedData
-            });
-        }
-        
-        console.log('📡 구글 스프레드시트 API를 호출합니다 (캐시 없음)...');
-        // 학기별 시트 (배치 조회)
-        const ranges = ["'강좌_마스터'!A:G", "'교사_명렬표'!A:H", "'기준_시간표'!A:D", "'일별_시간표'!A:G", "'학생_명렬표'!A:N"];
-        const [response, masterResponse] = await Promise.all([
-            sheets.spreadsheets.values.batchGet({
-                spreadsheetId: SPREADSHEET_ID,
-                ranges: ranges
-            }),
-            // 사용자_관리는 마스터 시트에서 별도 조회
-            sheets.spreadsheets.values.get({
-                spreadsheetId: MASTER_SPREADSHEET_ID,
-                range: "'사용자_관리'!A:I"
-            })
-        ]);
-
-        const valueRanges = response.data.valueRanges;
-        
-        const courses = parseSheetData(valueRanges[0].values); // 강좌_마스터
-        const teachers = parseSheetData(valueRanges[1].values); // 교사_명렬표
-        const baseSchedules = parseSheetData(valueRanges[2].values); // 기준_시간표
-        const dailySchedules = parseSheetData(valueRanges[3].values); // 일별_시간표
-        const students = parseSheetData(valueRanges[4].values); // 학생_명렬표
-        const users = parseSheetData(masterResponse.data.values || []); // 사용자_관리 (마스터 시트)
-
-        const dataToCache = { courses, teachers, baseSchedules, dailySchedules, students, users };
-        appCache.set(cacheKey, dataToCache);
-
-        res.json({
-            success: true,
-            data: dataToCache
-        });
-
+        const data = await getAllData();
+        res.json({ success: true, data });
     } catch (error) {
         console.error("데이터 조회 에러:", error);
         res.status(500).json({ success: false, message: '구글 스프레드시트 조회에 실패했습니다.' });
+    }
+});
+
+// 플랫폼(메인페이지) 대시보드용 오늘의 변동사항 API
+app.get('/api/changes/today', authenticateToken, async (req, res) => {
+    try {
+        const data = await getAllData();
+        const user = req.user;
+        const identifier = user.identifier || user.uid || '';
+        
+        // 오늘 날짜 (KST)
+        const today = new Date();
+        const kstDate = new Date(today.getTime() + (9 * 60 * 60 * 1000));
+        const yyyy = kstDate.getUTCFullYear();
+        const mm = String(kstDate.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(kstDate.getUTCDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+        
+        // 오늘의 일별 시간표 가져오기
+        const todaysChanges = data.dailySchedules.filter(d => d['날짜'] === todayStr);
+        console.log(`[API /changes/today] User:`, user);
+        console.log(`[API /changes/today] todayStr: ${todayStr}, todaysChanges count: ${todaysChanges.length}`);
+
+        // 강좌 코드 -> 과목명 맵핑 헬퍼
+        const getSubjectName = (courseCode) => {
+            const course = data.courses.find(c => c['강좌코드'] === courseCode);
+            return course ? course['과목명'] : courseCode;
+        };
+        const extractClassInfo = (code) => {
+            const match = code.match(/\((.*?)\)/);
+            return match ? match[1] : '';
+        };
+
+        const changes = [];
+        // 실제로는 상태(이동, 취소 등)에 따라 원본과 변경 내용을 매핑해야 하지만,
+        // 현재는 플랫폼에서 보여주기 좋게 임의로 변환합니다.
+        for (const ch of todaysChanges) {
+            // 학생은 본인 학급인지, 교사는 본인 이름이 있는지 필터
+            let isRelevant = false;
+            if (user.role === '교사' || user.role === '업무담당자' || user.role === '관리자') {
+                if (ch['원래교사'] === user.name || ch['변경교사'] === user.name) isRelevant = true;
+            } else if (user.role === '학생') {
+                // 임시: 학생은 identifier나 name에서 학급 정보를 추출한다고 가정
+                const classInfo = extractClassInfo(ch['강좌코드']);
+                if (identifier) {
+                    let userClassInfo = '';
+                    // 마지막이 5자리 숫자로 끝나는 경우 (예: 10101 또는 26-10120)
+                    const studentIdMatch = identifier.match(/(\d{5})$/);
+                    if (studentIdMatch) {
+                        const studentId = studentIdMatch[1];
+                        const userGrade = studentId.substring(0, 1);
+                        const userClass = studentId.substring(1, 3).replace(/^0+/, '');
+                        userClassInfo = `${userGrade}-${userClass}`;
+                    } 
+                    // 1-1 형태
+                    else if (/^\d-\d+$/.test(identifier)) {
+                        userClassInfo = identifier;
+                    }
+                    // 그 외 (예: 1학년 1반)
+                    else {
+                        const gradeMatch = identifier.match(/(\d)학년/);
+                        const classMatch = identifier.match(/(\d+)반/);
+                        if (gradeMatch && classMatch) {
+                            userClassInfo = `${gradeMatch[1]}-${classMatch[1]}`;
+                        } else {
+                            // 최후의 수단: 그냥 통째로 비교하거나 uid 그대로 사용
+                            userClassInfo = identifier;
+                        }
+                    }
+                    
+                    if (classInfo === userClassInfo) isRelevant = true;
+                }
+            }
+            
+            if (isRelevant) {
+                let type = 'moved';
+                if (ch['상태'] === '이동(OUT)') type = 'cancelled';
+                if (ch['상태'] === '대강') type = 'substituted';
+                if (ch['상태'] === '이동(IN)') type = 'added';
+                if (ch['상태'] === '보강') type = 'added';
+                if (ch['상태'] === '자습') type = 'substituted'; // 자습 처리
+                if (ch['상태'] === '취소') continue; // 취소된 건은 스킵
+                if (ch['상태'] === '정상') continue; // 정상(변경 없음)은 스킵
+                
+                changes.push({
+                    period: ch['교시'],
+                    type: type,
+                    original: { subject: getSubjectName(ch['강좌코드']), teacher: ch['원래교사'] },
+                    changed: { subject: ch['상태'] === '자습' ? '자습' : getSubjectName(ch['강좌코드']), teacher: ch['변경교사'] || ch['상태'] },
+                    note: ch['사유'] || ch['상태']
+                });
+            }
+        }
+        // 행사 데이터 파싱 (교시 범위 형태로)
+        const eventsRaw = [];
+        for (const ch of todaysChanges) {
+            if (ch['상태'] === '행사') {
+                const targetMatch = ch['강좌코드'].match(/\((.*?)\)/);
+                const target = targetMatch ? targetMatch[1] : '';
+                
+                let isEventRelevant = false;
+                if (user.role === '관리자' || user.role === '업무담당자' || user.role === '교사') {
+                    isEventRelevant = true;
+                } else if (user.role === '학생') {
+                    if (target === '전체') isEventRelevant = true;
+                    else if (identifier) {
+                        const studentIdMatch = identifier.match(/(\d{5})$/);
+                        if (studentIdMatch) {
+                            const userGrade = studentIdMatch[1].substring(0, 1);
+                            if (target === `${userGrade}학년`) isEventRelevant = true;
+                            // 1-1반 구체 대상 행사
+                            const userClass = studentIdMatch[1].substring(1, 3).replace(/^0+/, '');
+                            if (target === `${userGrade}-${userClass}`) isEventRelevant = true;
+                        }
+                    }
+                }
+                
+                if (isEventRelevant) {
+                    eventsRaw.push({
+                        name: ch['사유'],
+                        period: parseInt(ch['교시'], 10) || 0,
+                    });
+                }
+            }
+        }
+
+        // 이름별 연속 교시를 묶어 "1~7 체육대회" 형태로 요약
+        const eventGroups = {};
+        eventsRaw.forEach(ev => {
+            if (!eventGroups[ev.name]) eventGroups[ev.name] = [];
+            eventGroups[ev.name].push(ev.period);
+        });
+        const events = Object.entries(eventGroups).map(([name, periods]) => {
+            periods.sort((a, b) => a - b);
+            const min = periods[0], max = periods[periods.length - 1];
+            const label = min === max ? `${min}교시` : `${min}~${max}교시`;
+            return { name, periodLabel: label };
+        });
+
+        res.json({
+            changes,
+            events
+        });
+
+    } catch (error) {
+        console.error("변동사항 API 에러:", error);
+        res.status(500).json({ success: false, message: '변동사항을 가져오는 데 실패했습니다.' });
     }
 });
 
