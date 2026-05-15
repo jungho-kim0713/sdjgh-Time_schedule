@@ -62,7 +62,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
   // 특정 교사의 해당 셀의 시뮬레이션 된 시간표 조회
   const getTeacherCell = (teacherName: string, dateStr: string, dayStr: string, period: string, isPreview: boolean = false, previewTgt: any = null) => {
     const myCourses = courses.filter(c => c['담당교사'] === teacherName).map(c => c['강좌코드']);
-    let baseList = baseSchedules.filter(s => s['요일'] === dayStr && String(s['교시']) === String(period) && myCourses.includes(s['강좌코드']));
+    let baseList = baseSchedules.filter(s => s['요일'] === dayStr && String(s['교시']) === String(period) && (s['담당교사'] === teacherName || myCourses.includes(s['강좌코드'])));
 
     // 1. 기존 변경사항(dailySchedules) 적용
     const changes = dailySchedules?.filter(d => d['날짜'] === dateStr && String(d['교시']) === String(period)) || [];
@@ -349,7 +349,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
           if (hasClass) {
             targetCourseCode = classSchs[0]['강좌코드'];
             const tCourseInfo = courses.find(c => c['강좌코드'] === targetCourseCode);
-            targetTeacherName = tCourseInfo ? tCourseInfo['담당교사'] : '';
+            targetTeacherName = classSchs[0]['담당교사'] || (tCourseInfo ? tCourseInfo['담당교사'] : '');
 
             const daily = dailySchedules?.find(d => d['날짜'] === sDate && String(d['교시']) === String(p) && d['강좌코드'] === targetCourseCode);
             if (daily && daily['상태'] === '자습') {
