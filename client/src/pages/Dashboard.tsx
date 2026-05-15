@@ -17,7 +17,8 @@ for (let g = 1; g <= 3; g++) {
 
 const isHighlightOverride = (m: any) => {
   if (!m || !m.isOverride) return false;
-  if (m.status && m.status.includes('개인사정')) return false;
+  if (m.status && (m.status.includes('개인사정') || m.status.includes('수업불가'))) return false;
+  if (m['강좌코드'] && m['강좌코드'].includes('개인사정')) return false;
   return true;
 };
 
