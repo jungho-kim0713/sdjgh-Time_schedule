@@ -24,8 +24,9 @@ function migrateExistingData() {
   const days = ['월', '화', '수', '목', '금'];
 
   let emptyRowCount = 0;
+  let currentDept = "";
   for (let i = 4; i < data.length; i++) {
-    const dept = String(data[i][1] || "").trim();
+    let dept = String(data[i][1] || "").trim();
     const name = String(data[i][2] || "").trim();
 
     if (!name) {
@@ -35,6 +36,12 @@ function migrateExistingData() {
     }
 
     emptyRowCount = 0;
+    if (dept) {
+      currentDept = dept;
+    } else {
+      dept = currentDept;
+    }
+    
     let teacherId;
     const teacherKey = name + "|" + dept;
     if (!teacherMap[teacherKey]) {
@@ -57,49 +64,58 @@ function migrateExistingData() {
         if (cellValue !== null && cellValue !== undefined && cellValue !== "") {
           let strValue = String(cellValue).trim();
 
-          if (strValue !== "자율" && strValue !== "클럽" && strValue !== "X" && strValue !== "Ｘ") {
-            const parts = strValue.split('\n');
-            let rawSubject = parts[0].trim();
-
-            let isSplit = "N";
-            let subject = rawSubject;
-
-            if (rawSubject.startsWith('*')) {
-              isSplit = "Y";
-              subject = rawSubject.substring(1).trim();
-            }
-
-            teacherMap[teacherKey].subjects.add(subject);
-            if (parts.length === 1) {
-              const className = "공통";
-              let courseCode = subject + "(" + className + ")";
-
-              if (courseCode === "부장(회의)") {
-                courseCode = "부장(회의)-" + name;
-              }
-
+          if (strValue !== "자율" && strValue !== "클럽") {
+            if (strValue === "X" || strValue === "Ｘ") {
+              const courseCode = "개인사정(X)";
               if (!courses.has(courseCode)) {
                 courses.add(courseCode);
-                courseMasterEntries.push([courseCode, subject, name, teacherId, "", isSplit]);
+                courseMasterEntries.push([courseCode, "개인사정", "(전체공통)", "SPEC-X", "전체", "N"]);
               }
               timetableEntries.push([dayName, period, courseCode, name]);
             } else {
-              for (let p = 1; p < parts.length; p++) {
-                const className = parts[p].trim();
+              const parts = strValue.split('\n');
+              let rawSubject = parts[0].trim();
 
-                if (!className) continue;
+              let isSplit = "N";
+              let subject = rawSubject;
 
+              if (rawSubject.startsWith('*')) {
+                isSplit = "Y";
+                subject = rawSubject.substring(1).trim();
+              }
+
+              teacherMap[teacherKey].subjects.add(subject);
+              if (parts.length === 1) {
+                const className = "공통";
                 let courseCode = subject + "(" + className + ")";
 
                 if (courseCode === "부장(회의)") {
                   courseCode = "부장(회의)-" + name;
                 }
+
                 if (!courses.has(courseCode)) {
                   courses.add(courseCode);
-                  const grade = className.includes('-') ? className.split('-')[0] : "";
-                  courseMasterEntries.push([courseCode, subject, name, teacherId, grade, isSplit]);
+                  courseMasterEntries.push([courseCode, subject, name, teacherId, "", isSplit]);
                 }
                 timetableEntries.push([dayName, period, courseCode, name]);
+              } else {
+                for (let p = 1; p < parts.length; p++) {
+                  const className = parts[p].trim();
+
+                  if (!className) continue;
+
+                  let courseCode = subject + "(" + className + ")";
+
+                  if (courseCode === "부장(회의)") {
+                    courseCode = "부장(회의)-" + name;
+                  }
+                  if (!courses.has(courseCode)) {
+                    courses.add(courseCode);
+                    const grade = className.includes('-') ? className.split('-')[0] : "";
+                    courseMasterEntries.push([courseCode, subject, name, teacherId, grade, isSplit]);
+                  }
+                  timetableEntries.push([dayName, period, courseCode, name]);
+                }
               }
             }
           }
@@ -188,7 +204,7 @@ function generateDailyTimetable() {
         item.courseCode,
         teacherName,
         teacherName,
-        '정상',
+        item.courseCode === '개인사정(X)' ? '수업불가' : '정상',
         ''
       ]);
     }
