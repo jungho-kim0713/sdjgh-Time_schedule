@@ -97,7 +97,19 @@ async function getAllData(force = false) {
     const courses = parseSheetData(valueRanges[0].values);
     const teachers = parseSheetData(valueRanges[1].values);
     const baseSchedules = parseSheetData(valueRanges[2].values);
-    const dailySchedules = parseSheetData(valueRanges[3].values);
+    const dailySchedules = parseSheetData(valueRanges[3].values).map(d => {
+        let cellDate = d['날짜'] || '';
+        if (cellDate.includes('.')) {
+            const parts = cellDate.split('.');
+            if (parts.length >= 3) {
+                const y = parts[0].length === 2 ? '20' + parts[0] : parts[0];
+                const m = parts[1].trim().padStart(2, '0');
+                const d_part = parts[2].trim().padStart(2, '0');
+                d['날짜'] = `${y}-${m}-${d_part}`;
+            }
+        }
+        return d;
+    });
     const students = parseSheetData(valueRanges[4].values);
     const users = parseSheetData(masterResponse.data.values || []);
 
