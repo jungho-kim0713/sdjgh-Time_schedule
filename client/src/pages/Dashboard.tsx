@@ -698,7 +698,7 @@ const Dashboard: React.FC = () => {
           <img src="/서대전여고 로고(투명).png" alt="Logo" style={{ width: '22px', height: '22px', borderRadius: '5px' }} />
         </div>
 
-        <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 조회 화이팅!</button>
+        <button onClick={() => setActiveTab('view')} style={{ background: activeTab === 'view' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'view' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>시간표 조회</button>
         {(userRole === '업무담당자' || userRole === '관리자') && (
           <button onClick={() => setActiveTab('calendar')} style={{ background: activeTab === 'calendar' ? 'rgba(255,255,255,0.1)' : 'transparent', color: activeTab === 'calendar' ? 'white' : 'var(--text-secondary)', padding: '8px 18px', borderRadius: '9999px', transition: 'var(--transition-spring)', fontSize: '0.9rem', width: 'auto' }}>학사일정 관리</button>
         )}
@@ -722,7 +722,7 @@ const Dashboard: React.FC = () => {
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '20px' }}>
                <h1 style={{ margin: 0, fontSize: 'clamp(2rem, 8vw, 3.5rem)', fontWeight: 600, letterSpacing: '-0.02em', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
-                 {activeTab === 'view' ? '시간표 조회 화이팅!' : activeTab === 'edit' ? '시간표 수정' : activeTab === 'analyze' ? '시간표 분석' : '학사일정 관리'}
+                 {activeTab === 'view' ? '시간표 조회' : activeTab === 'edit' ? '시간표 수정' : activeTab === 'analyze' ? '시간표 분석' : '학사일정 관리'}
                </h1>
                {activeTab === 'edit' && (
                  <button 

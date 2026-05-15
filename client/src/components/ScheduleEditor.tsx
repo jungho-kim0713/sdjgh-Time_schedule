@@ -674,7 +674,7 @@ const ScheduleEditor: React.FC<Props> = ({ courses, baseSchedules, dailySchedule
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           <div style={{ fontWeight: 600, fontSize: '1.1rem', display: 'flex', alignItems: 'center' }}>
-                            <span>{schedule['교시']}교시 - {courseInfo ? courseInfo['과목명'] : schedule['강좌코드'].split(' ')[0]}</span>
+                            <span>{schedule['교시']}교시 - {schedule['강좌코드'] === '개인사정(X)' ? 'X' : (courseInfo ? courseInfo['과목명'] : schedule['강좌코드'].split(' ')[0])}</span>
                           </div>
                           <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             <span style={{ color: '#ffb86c' }}>{schedule['강좌코드'].split(' ')[0]}</span>
