@@ -15,6 +15,12 @@ for (let g = 1; g <= 3; g++) {
   }
 }
 
+const isHighlightOverride = (m: any) => {
+  if (!m || !m.isOverride) return false;
+  if (m.status && m.status.includes('개인사정')) return false;
+  return true;
+};
+
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'view' | 'edit' | 'analyze' | 'calendar'>('view');
@@ -360,9 +366,9 @@ const Dashboard: React.FC = () => {
     return {
       elements: (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <span style={{ fontWeight: 600, color: item.isOverride ? '#a8ffb2' : 'white' }}>{subjectName}</span>
-          <span style={{ fontSize: '0.85rem', color: item.isOverride ? '#a8ffb2' : 'var(--text-secondary)' }}>{teacherName}</span>
-          {item.isOverride && (
+          <span style={{ fontWeight: 600, color: isHighlightOverride(item) ? '#a8ffb2' : 'white' }}>{subjectName}</span>
+          <span style={{ fontSize: '0.85rem', color: isHighlightOverride(item) ? '#a8ffb2' : 'var(--text-secondary)' }}>{teacherName}</span>
+          {isHighlightOverride(item) && (
             <span style={{ fontSize: '0.7rem', color: '#ff5555', background: 'rgba(255,85,85,0.2)', padding: '2px 4px', borderRadius: '4px' }}>{item.status}</span>
           )}
         </div>
@@ -419,9 +425,9 @@ const Dashboard: React.FC = () => {
 
          return (
             <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-               <span style={{ fontWeight: 600, color: m.isOverride ? '#a8ffb2' : 'white' }}>{subjectName}</span>
-               {classGroup && <span style={{ fontSize: '0.8rem', color: m.isOverride ? '#a8ffb2' : '#ffb86c', marginTop: '4px', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px' }}>{classGroup}</span>}
-               {m.isOverride && <span style={{ fontSize: '0.7rem', color: '#ff5555', background: 'rgba(255,85,85,0.2)', padding:'2px 4px', borderRadius:'4px', marginTop:'4px' }}>{m.status}</span>}
+               <span style={{ fontWeight: 600, color: isHighlightOverride(m) ? '#a8ffb2' : 'white' }}>{subjectName}</span>
+               {classGroup && <span style={{ fontSize: '0.8rem', color: isHighlightOverride(m) ? '#a8ffb2' : '#ffb86c', marginTop: '4px', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '4px' }}>{classGroup}</span>}
+               {isHighlightOverride(m) && <span style={{ fontSize: '0.7rem', color: '#ff5555', background: 'rgba(255,85,85,0.2)', padding:'2px 4px', borderRadius:'4px', marginTop:'4px' }}>{m.status}</span>}
             </div>
          );
       });
@@ -480,7 +486,7 @@ const Dashboard: React.FC = () => {
           }
       });
 
-      const hasOverride = normalItems.some((m: any) => m.isOverride);
+      const hasOverride = normalItems.some((m: any) => isHighlightOverride(m));
       const bujanCount = specialItems.filter(m => m['강좌코드'].startsWith('부장(회의)')).length;
 
       return {
@@ -531,7 +537,7 @@ const Dashboard: React.FC = () => {
         }
     });
 
-    const hasOverride = normalItems.some((m: any) => m.isOverride);
+    const hasOverride = normalItems.some((m: any) => isHighlightOverride(m));
     const bujanCount = specialItems.filter(m => m['강좌코드'].startsWith('부장(회의)')).length;
 
     return {
@@ -573,7 +579,7 @@ const Dashboard: React.FC = () => {
              const cls = Number(match[3]);
              if (cls > maxClass) maxClass = cls;
              if (!matrix[grade]) matrix[grade] = {};
-             matrix[grade][cls] = { subject, teacher, isOverride: m.isOverride, status: m.status, isEvent: false };
+             matrix[grade][cls] = { subject, teacher, isOverride: isHighlightOverride(m), status: m.status, isEvent: false };
           }
         } else {
           // 행사 처리 (학년별 또는 전체)
@@ -930,7 +936,7 @@ const Dashboard: React.FC = () => {
                            : getCourseForCell(dateStr, day, period);
                          const { elements, raw } = result;
                          const isSpecial = (result as any).isSpecial;
-                         const hasOverride = raw.some((m: any) => m.isOverride);
+                         const hasOverride = raw.some((m: any) => isHighlightOverride(m));
                          const isHoverable = viewMode === 'all' && elements && !isSpecial;
 
                          let cellBg = 'rgba(255,255,255,0.02)';
